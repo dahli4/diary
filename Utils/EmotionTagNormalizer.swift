@@ -44,8 +44,4 @@ enum EmotionTagNormalizer {
 
     return result
   }
-
-  static func normalizeAll(_ tags: [String]) -> [String] {
-    tags.compactMap { normalize($0) }
-  }
 }
