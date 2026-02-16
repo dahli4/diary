@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 struct ReflectionAnalysis {
   let summary: String
@@ -16,14 +17,22 @@ enum ReflectionAnalyzer {
 
   private static let emotionRules: [(tag: String, keywords: [String])] = [
     ("안정", ["평온", "차분", "편안", "안정", "여유"]),
-    ("기쁨", ["행복", "기쁨", "웃", "설렘", "뿌듯", "즐거"]),
+    ("기쁨", ["행복", "기쁨", "웃", "설렘", "즐거", "뿌듯"]),
     ("감사", ["감사", "고마", "든든", "따뜻"]),
-    ("피로", ["피곤", "지침", "지쳤", "무기력", "졸림"]),
-    ("불안", ["불안", "걱정", "초조", "긴장", "압박", "부담", "비용", "비싼", "언제", "출시"]),
-    ("분노", ["화", "짜증", "분노", "답답", "억울", "멍청", "구려", "빡침"]),
+    ("피로", ["피곤", "지침", "지쳤", "무기력", "졸림", "버겁"]),
+    ("불안", ["불안", "걱정", "초조", "긴장", "압박", "부담", "막막"]),
+    ("분노", ["화", "짜증", "분노", "답답", "억울", "빡침", "멍청", "구려"]),
     ("슬픔", ["슬픔", "우울", "눈물", "외롭", "허무"]),
     ("집중", ["몰입", "집중", "성취", "해냈", "완료"])
   ]
+
+  private static let stopwords: Set<String> = [
+    "그리고", "그러나", "하지만", "그래서", "그런데", "정말", "진짜", "그냥", "너무", "조금",
+    "오늘", "어제", "내일", "지금", "이제", "이거", "저거", "그거", "내용", "부분", "상황",
+    "문제", "생각", "기분", "때문", "관련", "대한", "위해", "에서", "으로", "에게", "했다", "하는"
+  ]
+
+  private static let issueHints = ["왜", "문제", "한계", "성능", "오류", "실패", "안됨", "안돼", "부담"]
 
   static func prompt(excluding current: String? = nil) -> String {
     if prompts.isEmpty { return "오늘 가장 오래 남을 장면은 무엇인가요?" }
@@ -35,29 +44,22 @@ enum ReflectionAnalyzer {
   }
 
   static func analyze(content: String, mood: String?) -> ReflectionAnalysis {
-    let cleaned = content
-      .replacingOccurrences(of: "\n", with: " ")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-
-    let sentences = cleaned
-      .components(separatedBy: CharacterSet(charactersIn: ".!?。！？"))
-      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-      .filter { !$0.isEmpty }
-
-    var detected: [String] = []
-    for rule in emotionRules {
-      if rule.keywords.contains(where: { cleaned.localizedCaseInsensitiveContains($0) }) {
-        detected.append(rule.tag)
-      }
+    let cleaned = normalize(content)
+    guard !cleaned.isEmpty else {
+      return ReflectionAnalysis(summary: "오늘 기록이 짧아 한 줄 요약을 만들기 어려워요.", emotionTags: [])
     }
 
+    let sentences = extractSentences(from: cleaned)
+    let main = pickMainSentence(from: sentences, source: cleaned)
+    let context = pickContextSentence(from: sentences, excluding: main)
+
+    var detected = detectEmotionTags(in: cleaned)
     if let mood, let moodTag = moodTag(from: mood) {
       detected.append(moodTag)
     }
+    let uniqueTags = EmotionTagNormalizer.normalizeList(detected, limit: 3)
 
-    let uniqueTags = Array(NSOrderedSet(array: detected)) as? [String] ?? []
-    let summary = buildSummary(sentences: sentences, emotionTags: uniqueTags)
-
+    let summary = buildOneLineSummary(main: main, context: context, emotionTag: uniqueTags.first)
     return ReflectionAnalysis(summary: summary, emotionTags: uniqueTags)
   }
 
@@ -78,106 +80,158 @@ enum ReflectionAnalyzer {
     }
   }
 
-  private static func buildSummary(sentences: [String], emotionTags: [String]) -> String {
-    if sentences.isEmpty {
-      return "1. 핵심 이슈: 기록 내용이 짧아 핵심 이슈를 특정하기 어려움\n2. 상황 맥락: 오늘 있었던 구체적인 장면이 더 필요함\n3. 감정 흐름: 감정 단서가 충분하지 않음"
+  private static func buildOneLineSummary(main: String, context: String?, emotionTag: String?) -> String {
+    var parts: [String] = [clipped(main, limit: 68)]
+
+    if let context, !context.isEmpty {
+      parts.append("그 과정에서 \(clipped(context, limit: 34))")
     }
 
-    let issueSentence = primaryIssueSentence(from: sentences)
-    let issue = issueSummary(from: sentences, primary: issueSentence)
-    let context = contextSentence(from: sentences, excluding: issueSentence)
-    let emotion = inferredEmotionLine(from: emotionTags, sentences: sentences)
+    if let emotionTag, !emotionTag.isEmpty {
+      parts.append(emotionTail(for: emotionTag))
+    }
 
-    return [
-      "1. 핵심 이슈: \(issue)",
-      "2. 상황 맥락: \(clipped(context, limit: 46))",
-      "3. 감정 흐름: \(emotion)"
-    ].joined(separator: "\n")
+    return normalizedSummaryLine(parts.joined(separator: " "))
   }
 
-  private static func primaryIssueSentence(from sentences: [String]) -> String {
-    let issueKeywords = ["왜", "문제", "한계", "성능", "오류", "실패", "멍청", "구려", "안됨", "안돼"]
+  private static func emotionTail(for emotionTag: String) -> String {
+    switch emotionTag {
+    case "기쁨":
+      return "기분은 비교적 밝게 이어졌어요"
+    case "감사":
+      return "고마움이 남는 하루였어요"
+    case "안정":
+      return "마음은 대체로 차분했어요"
+    case "집중":
+      return "집중 흐름이 잘 유지됐어요"
+    case "불안":
+      return "중간중간 불안이 올라왔어요"
+    case "분노":
+      return "답답함이 크게 남았어요"
+    case "슬픔":
+      return "가라앉는 감정이 남았어요"
+    case "피로":
+      return "피로감이 누적된 느낌이에요"
+    default:
+      return "\(emotionTag) 감정이 남았어요"
+    }
+  }
 
-    let scored = sentences.map { sentence -> (sentence: String, score: Int) in
-      let score = issueKeywords.reduce(0) { partial, token in
-        partial + (sentence.localizedCaseInsensitiveContains(token) ? 1 : 0)
+  private static func pickMainSentence(from sentences: [String], source: String) -> String {
+    guard !sentences.isEmpty else { return source }
+    let frequencies = tokenFrequency(from: source)
+
+    let ranked = sentences.map { sentence -> (sentence: String, score: Double) in
+      let tokens = wordTokens(from: sentence)
+      let keywordScore = tokens.reduce(0.0) { partial, token in
+        partial + Double(frequencies[token] ?? 0)
       }
-      return (sentence, score)
+      let uniqueBonus = tokens.isEmpty ? 0.0 : Double(Set(tokens).count) / Double(tokens.count)
+      let hintBonus = issueHints.contains(where: { sentence.localizedCaseInsensitiveContains($0) }) ? 1.2 : 0.0
+      let lengthBonus = (sentence.count >= 14 && sentence.count <= 90) ? 0.2 : -0.1
+      return (sentence, keywordScore + uniqueBonus + hintBonus + lengthBonus)
     }
     .sorted { $0.score > $1.score }
 
-    return scored.first?.sentence ?? sentences[0]
+    return ranked.first?.sentence ?? sentences[0]
   }
 
-  private static func contextSentence(from sentences: [String], excluding primary: String) -> String {
-    let joined = sentences.joined(separator: " ")
-    var themes: [String] = []
+  private static func pickContextSentence(from sentences: [String], excluding main: String) -> String? {
+    guard sentences.count > 1 else { return nil }
+    let mainTokenSet = Set(wordTokens(from: main))
 
-    if containsAny(joined, ["요약", "상황", "맥락", "문장"]) {
-      themes.append("요약 방식의 정확도 점검")
-    }
-    if containsAny(joined, ["온디바이스", "업데이트", "성능", "애플"]) {
-      themes.append("온디바이스 성능 변화 관찰")
-    }
-    if containsAny(joined, ["토큰", "비용", "비싼", "녹아", "과금"]) {
-      themes.append("개발 비용 부담")
-    }
-    if containsAny(joined, ["코덱스", "앱", "개발", "출시"]) {
-      themes.append("앱 개발 진행 상황")
+    for sentence in sentences where sentence != main {
+      let candidateSet = Set(wordTokens(from: sentence))
+      if jaccard(mainTokenSet, candidateSet) < 0.72 {
+        return sentence
+      }
     }
 
-    let uniqueThemes = Array(NSOrderedSet(array: themes)) as? [String] ?? []
-    if uniqueThemes.count >= 2 {
-      return "\(uniqueThemes[0])과 \(uniqueThemes[1])이 함께 언급됨"
-    }
-    if let first = uniqueThemes.first {
-      return first
-    }
-    if primary.localizedCaseInsensitiveContains("테스트") {
-      return "테스트를 반복하며 업데이트 전후 변화를 비교함"
-    }
-    return "기록된 내용을 바탕으로 원인과 흐름을 점검함"
+    return sentences.first(where: { $0 != main })
   }
 
-  private static func issueSummary(from sentences: [String], primary: String) -> String {
-    let joined = sentences.joined(separator: " ")
-
-    if containsAny(joined, ["요약", "상황", "맥락", "문장"]) &&
-      containsAny(joined, ["온디바이스", "업데이트", "성능"]) {
-      return "요약 품질과 온디바이스 성능 저하 원인을 점검하는 문제"
+  private static func detectEmotionTags(in text: String) -> [String] {
+    var detected: [String] = []
+    for rule in emotionRules {
+      if rule.keywords.contains(where: { text.localizedCaseInsensitiveContains($0) }) {
+        detected.append(rule.tag)
+      }
     }
-    if containsAny(joined, ["요약", "정리", "문장"]) {
-      return "요약 결과의 정확도와 표현 방식 개선 필요"
-    }
-    if containsAny(joined, ["온디바이스", "업데이트", "성능", "한계"]) {
-      return "업데이트 이후 온디바이스 성능 변화를 검증할 필요"
-    }
-    if containsAny(joined, ["비용", "토큰", "과금", "비싼"]) {
-      return "개발 비용과 품질 사이의 균형이 핵심 과제"
-    }
-    if containsAny(joined, ["출시", "언제", "일정"]) {
-      return "개발 진행 속도와 출시 일정 불확실성 해소 필요"
-    }
-
-    return "기록에서 드러난 핵심 이슈를 구조적으로 점검할 필요"
+    return detected
   }
 
-  private static func inferredEmotionLine(from emotionTags: [String], sentences: [String]) -> String {
-    if let first = emotionTags.first {
-      return first
+  private static func extractSentences(from text: String) -> [String] {
+    var sentences: [String] = []
+    let tokenizer = NLTokenizer(unit: .sentence)
+    tokenizer.string = text
+
+    tokenizer.enumerateTokens(in: text.startIndex..<text.endIndex) { range, _ in
+      let sentence = String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+      let cleaned = stripTrailingPunctuation(sentence)
+      if !cleaned.isEmpty {
+        sentences.append(cleaned)
+      }
+      return true
     }
 
-    let joined = sentences.joined(separator: " ")
-    let frustrationHints = ["왜", "답답", "멍청", "구려", "화", "짜증", "억울"]
-    let anxietyHints = ["걱정", "불안", "초조", "긴장", "비용", "비싼", "압박", "출시", "언제"]
+    if !sentences.isEmpty { return sentences }
 
-    if frustrationHints.contains(where: { joined.localizedCaseInsensitiveContains($0) }) {
-      return "답답함과 의문이 함께 나타남"
+    return text
+      .components(separatedBy: CharacterSet(charactersIn: ".!?。！？\n"))
+      .map { stripTrailingPunctuation($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+      .filter { !$0.isEmpty }
+  }
+
+  private static func tokenFrequency(from text: String) -> [String: Int] {
+    var result: [String: Int] = [:]
+    for token in wordTokens(from: text) {
+      result[token, default: 0] += 1
     }
-    if anxietyHints.contains(where: { joined.localizedCaseInsensitiveContains($0) }) {
-      return "불안과 걱정이 함께 나타남"
+    return result
+  }
+
+  private static func wordTokens(from text: String) -> [String] {
+    var tokens: [String] = []
+    let tokenizer = NLTokenizer(unit: .word)
+    tokenizer.string = text
+
+    tokenizer.enumerateTokens(in: text.startIndex..<text.endIndex) { range, _ in
+      let token = String(text[range]).lowercased()
+      if isMeaningfulToken(token) {
+        tokens.append(token)
+      }
+      return true
     }
-    return "감정 표현이 비교적 중립적임"
+    return tokens
+  }
+
+  private static func isMeaningfulToken(_ token: String) -> Bool {
+    guard token.count >= 2 else { return false }
+    if stopwords.contains(token) { return false }
+    if token.allSatisfy({ $0.isNumber }) { return false }
+    return token.rangeOfCharacter(from: CharacterSet.letters) != nil
+  }
+
+  private static func jaccard(_ lhs: Set<String>, _ rhs: Set<String>) -> Double {
+    guard !(lhs.isEmpty && rhs.isEmpty) else { return 1.0 }
+    let intersection = lhs.intersection(rhs).count
+    let union = lhs.union(rhs).count
+    guard union > 0 else { return 0.0 }
+    return Double(intersection) / Double(union)
+  }
+
+  private static func normalize(_ text: String) -> String {
+    text
+      .replacingOccurrences(of: "\n", with: " ")
+      .replacingOccurrences(of: "\t", with: " ")
+      .components(separatedBy: .whitespacesAndNewlines)
+      .filter { !$0.isEmpty }
+      .joined(separator: " ")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private static func stripTrailingPunctuation(_ text: String) -> String {
+    text.trimmingCharacters(in: CharacterSet(charactersIn: ".!?。！？ ").union(.whitespacesAndNewlines))
   }
 
   private static func clipped(_ text: String, limit: Int) -> String {
@@ -185,7 +239,17 @@ enum ReflectionAnalyzer {
     return String(text.prefix(limit)) + "..."
   }
 
-  private static func containsAny(_ source: String, _ targets: [String]) -> Bool {
-    targets.contains { source.localizedCaseInsensitiveContains($0) }
+  private static func normalizedSummaryLine(_ text: String) -> String {
+    let compact = text
+      .replacingOccurrences(of: "\n", with: " ")
+      .components(separatedBy: .whitespacesAndNewlines)
+      .filter { !$0.isEmpty }
+      .joined(separator: " ")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if compact.hasSuffix(".") || compact.hasSuffix("!") || compact.hasSuffix("?") {
+      return compact
+    }
+    return compact + "."
   }
 }

@@ -59,6 +59,15 @@ struct DiaryDetailView: View {
           Divider()
             .background(.secondary.opacity(0.3))
             .padding(.bottom, 24)
+
+          // 회고 질문은 본문을 읽기 전에 보이도록 상단 배치
+          if let reflectionPrompt = item.reflectionPrompt, !reflectionPrompt.isEmpty {
+            Label(reflectionPrompt, systemImage: "questionmark.circle")
+              .font(.footnote)
+              .foregroundStyle(.secondary)
+              .lineLimit(2)
+              .padding(.bottom, 14)
+          }
           
           // 내용
           Text(item.content ?? "내용 없음")
@@ -73,30 +82,26 @@ struct DiaryDetailView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 18)
 
-              if let reflectionPrompt = item.reflectionPrompt, !reflectionPrompt.isEmpty {
-                Label(reflectionPrompt, systemImage: "questionmark.circle")
-                  .font(.footnote)
-                  .foregroundStyle(.secondary)
-                  .lineLimit(2)
-              }
-
               if !item.tags.isEmpty {
                 horizontalChips(item.tags.map { "#\($0)" }, tint: Color.white.opacity(0.5))
               }
 
               if !item.emotionTags.isEmpty {
-                horizontalChips(item.emotionTags.filter { $0 != "감정기록" }, tint: Color.accentColor.opacity(0.14))
+                horizontalChips(
+                  EmotionTagNormalizer.normalizeList(item.emotionTags.filter { $0 != "감정기록" }, limit: 10),
+                  tint: Color.accentColor.opacity(0.14)
+                )
               }
 
               if let autoSummary = item.autoSummary, !autoSummary.isEmpty {
                 DisclosureGroup("요약 보기", isExpanded: $showSummary) {
                   Text(autoSummary)
-                    .font(.footnote)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineSpacing(3)
                     .padding(.top, 6)
                 }
-                .font(.footnote.weight(.semibold))
+                .font(.callout.weight(.semibold))
               }
             }
           }
@@ -140,9 +145,8 @@ struct DiaryDetailView: View {
   }
 
   private var hasReflectionData: Bool {
-    let hasPrompt = !(item.reflectionPrompt?.isEmpty ?? true)
     let hasSummary = !(item.autoSummary?.isEmpty ?? true)
-    return hasPrompt || hasSummary || !item.tags.isEmpty || !item.emotionTags.isEmpty
+    return hasSummary || !item.tags.isEmpty || !item.emotionTags.isEmpty
   }
 
   @ViewBuilder

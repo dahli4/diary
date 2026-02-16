@@ -40,7 +40,7 @@ struct EmotionalBackgroundView: View {
           .fill(
             LinearGradient(
               colors: [
-                Color.white.opacity(0.28),
+                Color.white.opacity(0.20),
                 Color.white.opacity(0.04)
               ],
               startPoint: .top,

@@ -42,7 +42,7 @@ struct DiaryCardView: View {
             .lineLimit(1)
         }
 
-        let emotionChips = item.emotionTags.filter { $0 != "감정기록" }
+        let emotionChips = EmotionTagNormalizer.normalizeList(item.emotionTags.filter { $0 != "감정기록" }, limit: 2)
         if !emotionChips.isEmpty {
           HStack(spacing: 6) {
             Image(systemName: "waveform.path.ecg")

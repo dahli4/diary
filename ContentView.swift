@@ -5,6 +5,7 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @State private var openComposerToken = 0
     @State private var reminderPrompt: String?
+    @State private var isAuthenticating = false
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var authenticationService: AuthenticationService
     @AppStorage("isBiometricLockEnabled") private var biometricLockEnabled = false
@@ -26,23 +27,25 @@ struct ContentView: View {
         .onChange(of: biometricLockEnabled) { _, enabled in
             if enabled {
                 authenticationService.isUnlocked = false
-                authenticationService.authenticate()
+                triggerAuthenticationIfNeeded()
             } else {
                 authenticationService.isUnlocked = true
+                isAuthenticating = false
             }
         }
         .onChange(of: scenePhase) { _, phase in
             guard biometricLockEnabled else { return }
             if phase == .background {
                 authenticationService.isUnlocked = false
+                isAuthenticating = false
             }
             if phase == .active && !authenticationService.isUnlocked {
-                authenticationService.authenticate()
+                triggerAuthenticationIfNeeded()
             }
         }
         .onAppear {
             if biometricLockEnabled && !authenticationService.isUnlocked {
-                authenticationService.authenticate()
+                triggerAuthenticationIfNeeded()
             }
         }
     }
@@ -74,6 +77,7 @@ struct ContentView: View {
 
     private var lockOverlay: some View {
         ZStack {
+            // 잠금 상태에서는 앱 본문 대신 단색 배경만 표시
             Color(.systemBackground)
                 .ignoresSafeArea()
 
@@ -85,16 +89,30 @@ struct ContentView: View {
                 Text("Face ID 또는 Touch ID로 잠금을 해제하세요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Button("잠금 해제") {
-                    authenticationService.authenticate()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .padding(.top, 2)
             }
             .padding(24)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 28)
+        }
+        .onAppear {
+            triggerAuthenticationIfNeeded()
+        }
+    }
+
+    private func triggerAuthenticationIfNeeded() {
+        guard biometricLockEnabled else { return }
+        guard !authenticationService.isUnlocked else { return }
+        guard !isAuthenticating else { return }
+
+        isAuthenticating = true
+        authenticationService.authenticate()
+
+        // 중복 인증 호출을 막기 위해 짧은 디바운스 후 다시 인증 가능 상태로 전환한다.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            isAuthenticating = false
         }
     }
 }
