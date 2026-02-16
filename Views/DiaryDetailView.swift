@@ -96,12 +96,12 @@ struct DiaryDetailView: View {
               if let autoSummary = item.autoSummary, !autoSummary.isEmpty {
                 DisclosureGroup("요약 보기", isExpanded: $showSummary) {
                   Text(autoSummary)
-                    .font(.footnote)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineSpacing(3)
                     .padding(.top, 6)
                 }
-                .font(.footnote.weight(.semibold))
+                .font(.callout.weight(.semibold))
               }
             }
           }

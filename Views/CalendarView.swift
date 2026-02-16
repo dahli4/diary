@@ -74,9 +74,8 @@ struct CalendarView: View {
   }
 
   private var selectedDayEmotion: String {
-    let tags = EmotionTagNormalizer.normalizeList(
-      selectedDayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" },
-      limit: 20
+    let tags = EmotionTagNormalizer.normalizeAll(
+      selectedDayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
     )
     let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
     return counts.sorted { $0.value > $1.value }.first?.key ?? "-"
@@ -104,9 +103,8 @@ struct CalendarView: View {
   }
   
   private var mostFrequentEmotion: String {
-    let tags = EmotionTagNormalizer.normalizeList(
-      monthItems.flatMap(\.emotionTags).filter { $0 != "감정기록" },
-      limit: 200
+    let tags = EmotionTagNormalizer.normalizeAll(
+      monthItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
     )
     let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
     return counts.sorted { $0.value > $1.value }.first?.key ?? "-"
@@ -230,9 +228,8 @@ private struct CalendarGrid: View {
   private func markerColor(for date: Date) -> Color {
     let dayItems = dayEntries(for: date)
     if dayItems.isEmpty { return .clear }
-    let tags = EmotionTagNormalizer.normalizeList(
-      dayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" },
-      limit: 20
+    let tags = EmotionTagNormalizer.normalizeAll(
+      dayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
     )
     let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
     let primary = counts.sorted { $0.value > $1.value }.first?.key ?? ""

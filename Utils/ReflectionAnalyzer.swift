@@ -46,7 +46,7 @@ enum ReflectionAnalyzer {
   static func analyze(content: String, mood: String?) -> ReflectionAnalysis {
     let cleaned = normalize(content)
     guard !cleaned.isEmpty else {
-      return ReflectionAnalysis(summary: "오늘 기록이 짧아 핵심 요약을 만들기 어려움", emotionTags: [])
+      return ReflectionAnalysis(summary: "오늘 기록이 짧아 한 줄 요약을 만들기 어려워요.", emotionTags: [])
     }
 
     let sentences = extractSentences(from: cleaned)
@@ -81,17 +81,40 @@ enum ReflectionAnalyzer {
   }
 
   private static func buildOneLineSummary(main: String, context: String?, emotionTag: String?) -> String {
-    var line = clipped(main, limit: 72)
+    var parts: [String] = [clipped(main, limit: 68)]
 
     if let context, !context.isEmpty {
-      line += " 특히 " + clipped(context, limit: 38)
+      parts.append("그 과정에서 \(clipped(context, limit: 34))")
     }
 
     if let emotionTag, !emotionTag.isEmpty {
-      line += " 전반적으로 \(emotionTag) 감정이 남음"
+      parts.append(emotionTail(for: emotionTag))
     }
 
-    return normalizedSummaryLine(line)
+    return normalizedSummaryLine(parts.joined(separator: " "))
+  }
+
+  private static func emotionTail(for emotionTag: String) -> String {
+    switch emotionTag {
+    case "기쁨":
+      return "기분은 비교적 밝게 이어졌어요"
+    case "감사":
+      return "고마움이 남는 하루였어요"
+    case "안정":
+      return "마음은 대체로 차분했어요"
+    case "집중":
+      return "집중 흐름이 잘 유지됐어요"
+    case "불안":
+      return "중간중간 불안이 올라왔어요"
+    case "분노":
+      return "답답함이 크게 남았어요"
+    case "슬픔":
+      return "가라앉는 감정이 남았어요"
+    case "피로":
+      return "피로감이 누적된 느낌이에요"
+    default:
+      return "\(emotionTag) 감정이 남았어요"
+    }
   }
 
   private static func pickMainSentence(from sentences: [String], source: String) -> String {

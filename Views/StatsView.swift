@@ -155,7 +155,7 @@ struct StatsView: View {
       .filter { !$0.isTrashed && $0.timestamp >= weekAgo }
       .flatMap(\.emotionTags)
       .filter { $0 != "감정기록" }
-    let normalizedTags = EmotionTagNormalizer.normalizeList(recentTags, limit: 200)
+    let normalizedTags = EmotionTagNormalizer.normalizeAll(recentTags)
 
     let counts = Dictionary(grouping: normalizedTags, by: { $0 }).mapValues(\.count)
     let topTags = counts.sorted { $0.value > $1.value }.prefix(3).map(\.key)
@@ -206,9 +206,8 @@ private struct MonthlyHeatmapView: View {
   private func color(for date: Date) -> Color {
     let dayItems = items.filter { calendar.isDate($0.timestamp, inSameDayAs: date) }
     if dayItems.isEmpty { return Color.primary.opacity(0.06) }
-    let tags = EmotionTagNormalizer.normalizeList(
-      dayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" },
-      limit: 20
+    let tags = EmotionTagNormalizer.normalizeAll(
+      dayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
     )
     let primary = tags.first ?? ""
     if primary.contains("행복") || primary.contains("기쁨") || primary.contains("설렘") || primary.contains("감사") {
