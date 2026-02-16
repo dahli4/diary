@@ -44,4 +44,9 @@ enum EmotionTagNormalizer {
 
     return result
   }
+
+  // 빈도 계산이 필요한 화면에서는 중복을 유지한 채 정규화한다.
+  static func normalizeAll(_ tags: [String]) -> [String] {
+    tags.compactMap { normalize($0) }
+  }
 }
