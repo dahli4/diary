@@ -57,7 +57,7 @@ enum ReflectionAnalyzer {
     if let mood, let moodTag = moodTag(from: mood) {
       detected.append(moodTag)
     }
-    let uniqueTags = orderedUnique(detected)
+    let uniqueTags = EmotionTagNormalizer.normalizeList(detected, limit: 3)
 
     let summary = buildOneLineSummary(main: main, context: context, emotionTag: uniqueTags.first)
     return ReflectionAnalysis(summary: summary, emotionTags: uniqueTags)
@@ -84,11 +84,11 @@ enum ReflectionAnalyzer {
     var line = clipped(main, limit: 72)
 
     if let context, !context.isEmpty {
-      line += "; " + clipped(context, limit: 46)
+      line += " 특히 " + clipped(context, limit: 38)
     }
 
     if let emotionTag, !emotionTag.isEmpty {
-      line += " (\(emotionTag))"
+      line += " 전반적으로 \(emotionTag) 감정이 남음"
     }
 
     return normalizedSummaryLine(line)
@@ -187,16 +187,6 @@ enum ReflectionAnalyzer {
     if stopwords.contains(token) { return false }
     if token.allSatisfy({ $0.isNumber }) { return false }
     return token.rangeOfCharacter(from: CharacterSet.letters) != nil
-  }
-
-  private static func orderedUnique(_ values: [String]) -> [String] {
-    var seen: Set<String> = []
-    var result: [String] = []
-    for value in values where !seen.contains(value) {
-      seen.insert(value)
-      result.append(value)
-    }
-    return result
   }
 
   private static func jaccard(_ lhs: Set<String>, _ rhs: Set<String>) -> Double {

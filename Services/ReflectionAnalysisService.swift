@@ -36,7 +36,7 @@ import FoundationModels
 
 @available(iOS 26.0, *)
 private enum AppleOnDeviceDiaryAnalyzer {
-  private static let summaryStyle = "사실 요약형"
+  private static let summaryStyle = "자연스러운 회고형"
   private static let bannedFragments = [
     "기록이 짧아요",
     "한 줄만 더",
@@ -71,10 +71,9 @@ private enum AppleOnDeviceDiaryAnalyzer {
 
       let tags = payload.emotionTags
         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .filter { !$0.isEmpty }
-        .prefix(3)
 
-      candidates.append(ReflectionAnalysis(summary: refinedSummary, emotionTags: Array(tags)))
+      let normalizedTags = EmotionTagNormalizer.normalizeList(tags, limit: 3)
+      candidates.append(ReflectionAnalysis(summary: refinedSummary, emotionTags: normalizedTags))
     }
 
     guard !candidates.isEmpty else { return nil }
@@ -88,6 +87,7 @@ private enum AppleOnDeviceDiaryAnalyzer {
     입력된 일기를 기반으로 다음 JSON만 출력해라.
     규칙:
     - summary: 반드시 한 줄. 자연스러운 한국어 문장으로 작성.
+    - 보고체/브리핑체 문장을 피하고, 일기 맥락에 맞는 부드러운 톤으로 작성.
     - "핵심:", "배경:", "감정:" 같은 라벨을 붙이지 마라.
     - 번호(1.,2.,3.) 형식을 절대 쓰지 마라.
     - 원문 문장을 그대로 길게 복붙하지 말고 핵심만 압축.

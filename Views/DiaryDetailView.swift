@@ -85,7 +85,10 @@ struct DiaryDetailView: View {
               }
 
               if !item.emotionTags.isEmpty {
-                horizontalChips(item.emotionTags.filter { $0 != "감정기록" }, tint: Color.accentColor.opacity(0.14))
+                horizontalChips(
+                  EmotionTagNormalizer.normalizeList(item.emotionTags.filter { $0 != "감정기록" }, limit: 10),
+                  tint: Color.accentColor.opacity(0.14)
+                )
               }
 
               if let autoSummary = item.autoSummary, !autoSummary.isEmpty {
