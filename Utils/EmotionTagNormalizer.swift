@@ -45,11 +45,7 @@ enum EmotionTagNormalizer {
     return result
   }
 
-<<<<<<< feat/codex/ui-accent-red-and-lock-flow
   // 감정 빈도 집계에서는 중복 출현을 유지해야 하므로 전체 정규화 배열을 제공한다.
-=======
-  // 빈도 계산이 필요한 화면에서는 중복을 유지한 채 정규화한다.
->>>>>>> dev
   static func normalizeAll(_ tags: [String]) -> [String] {
     tags.compactMap { normalize($0) }
   }

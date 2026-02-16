@@ -1,8 +1,6 @@
 import SwiftUI
 import SwiftData
 
-private let timelineAccent = Color(red: 0.90, green: 0.27, blue: 0.30)
-
 struct MainListView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var currentMonth = Date()
@@ -157,7 +155,7 @@ struct DiaryFilteredList: View {
       ZStack(alignment: .leading) {
         GeometryReader { proxy in
           Rectangle()
-            .fill(timelineAccent.opacity(0.42))
+            .fill(AppTheme.pointColor.opacity(0.42))
             .frame(width: 1, height: proxy.size.height)
             .offset(x: 6)
             .allowsHitTesting(false)

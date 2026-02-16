@@ -1,8 +1,6 @@
 import SwiftUI
 import SwiftData
 
-private let diaryTimelineAccent = Color(red: 0.90, green: 0.27, blue: 0.30)
-
 struct DiaryCardView: View {
   static let rowHeight: CGFloat = 120
   let item: Item
@@ -84,7 +82,7 @@ struct DiaryCardView: View {
   private var timelineColumn: some View {
     ZStack {
       Circle()
-        .fill(Calendar.current.isDateInToday(item.timestamp) ? diaryTimelineAccent : diaryTimelineAccent.opacity(0.78))
+        .fill(Calendar.current.isDateInToday(item.timestamp) ? AppTheme.pointColor : AppTheme.pointColor.opacity(0.78))
         .frame(width: 8, height: 8)
     }
     .frame(width: 12)
