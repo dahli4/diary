@@ -4,6 +4,7 @@ import SwiftData
 struct CalendarView: View {
   @Query(filter: #Predicate<Item> { $0.isTrashed == false }, sort: \Item.timestamp, order: .reverse) private var items: [Item]
   @State private var selectedDate: Date = Date()
+  private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
   
   var body: some View {
     ZStack {
@@ -22,6 +23,7 @@ struct CalendarView: View {
             entries: selectedDayItems,
             primaryEmotion: selectedDayEmotion
           )
+          .animation(selectionAnimation, value: selectedDate)
 
           VStack(spacing: 10) {
             HStack(spacing: 10) {
@@ -124,6 +126,7 @@ struct CalendarView: View {
 
 private struct CalendarHeader: View {
   @Binding var selectedDate: Date
+  private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
   
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -135,7 +138,7 @@ private struct CalendarHeader: View {
       
       HStack(spacing: 8) {
         Button {
-          withAnimation {
+          withAnimation(selectionAnimation) {
             selectedDate = Date()
           }
         } label: {
@@ -148,7 +151,7 @@ private struct CalendarHeader: View {
         }
 
         Button {
-          withAnimation {
+          withAnimation(selectionAnimation) {
             selectedDate = Calendar.current.date(byAdding: .month, value: -1, to: selectedDate) ?? selectedDate
           }
         } label: {
@@ -165,7 +168,7 @@ private struct CalendarHeader: View {
           .foregroundStyle(.secondary)
         
         Button {
-          withAnimation {
+          withAnimation(selectionAnimation) {
             selectedDate = Calendar.current.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
           }
         } label: {
@@ -184,6 +187,7 @@ private struct CalendarHeader: View {
 private struct CalendarGrid: View {
   let items: [Item]
   @Binding var selectedDate: Date
+  private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
   
   private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
   private let cellHeight: CGFloat = 46
@@ -295,7 +299,9 @@ private struct CalendarGrid: View {
           )
           .opacity(isInMonth ? 1 : 0.45)
           .onTapGesture {
-            selectedDate = date
+            withAnimation(selectionAnimation) {
+              selectedDate = date
+            }
           }
         }
       }
@@ -342,6 +348,7 @@ private struct SelectedDayCard: View {
         Text("선택한 날짜에 작성된 일기가 없어요")
           .font(.system(size: 14, weight: .semibold))
           .foregroundStyle(.secondary)
+          .contentTransition(.opacity)
       } else {
         HStack(spacing: 8) {
           Text("주요 감정")
@@ -353,6 +360,7 @@ private struct SelectedDayCard: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(Color.primary.opacity(0.08), in: Capsule())
+            .contentTransition(.opacity)
         }
 
         if !topTitles.isEmpty {
@@ -361,6 +369,7 @@ private struct SelectedDayCard: View {
               Text("• \(title)")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.primary.opacity(0.9))
+                .contentTransition(.opacity)
             }
           }
         }
