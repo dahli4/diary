@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 
+private let calendarAccent = Color(red: 0.90, green: 0.27, blue: 0.30)
+
 struct CalendarView: View {
   @Query(filter: #Predicate<Item> { $0.isTrashed == false }, sort: \Item.timestamp, order: .reverse) private var items: [Item]
   @State private var selectedDate: Date = Date()
@@ -148,10 +150,10 @@ private struct CalendarHeader: View {
         } label: {
           Text("오늘")
             .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(calendarAccent)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(Color.primary.opacity(0.08), in: Capsule())
+            .background(calendarAccent.opacity(0.12), in: Capsule())
         }
 
         Button {
@@ -161,9 +163,9 @@ private struct CalendarHeader: View {
         } label: {
           Image(systemName: "chevron.left")
             .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(.primary.opacity(0.7))
+            .foregroundStyle(calendarAccent.opacity(0.82))
             .padding(8)
-            .background(Color.primary.opacity(0.06))
+            .background(calendarAccent.opacity(0.10))
             .clipShape(Circle())
         }
         
@@ -178,9 +180,9 @@ private struct CalendarHeader: View {
         } label: {
           Image(systemName: "chevron.right")
             .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(.primary.opacity(0.7))
+            .foregroundStyle(calendarAccent.opacity(0.82))
             .padding(8)
-            .background(Color.primary.opacity(0.06))
+            .background(calendarAccent.opacity(0.10))
             .clipShape(Circle())
         }
       }
@@ -192,6 +194,8 @@ private struct CalendarGrid: View {
   let items: [Item]
   @Binding var selectedDate: Date
   private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
+  @State private var gridSize: CGSize = .zero
+  @State private var lastDragDate: Date?
   
   private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
   private let cellHeight: CGFloat = 46
@@ -297,12 +301,14 @@ private struct CalendarGrid: View {
           .frame(maxWidth: .infinity, minHeight: cellHeight)
           .background(
             RoundedRectangle(cornerRadius: 10)
-              .fill(isSelected ? Color.primary.opacity(0.09) : Color.clear)
+              .fill(isSelected ? calendarAccent.opacity(0.14) : Color.clear)
           )
           .overlay(
             RoundedRectangle(cornerRadius: 10)
-              .stroke(isSelected ? Color.primary.opacity(0.24) : Color.clear, lineWidth: 1)
+              .stroke(isSelected ? calendarAccent.opacity(0.35) : Color.clear, lineWidth: 1.1)
           )
+          .scaleEffect(isSelected ? 1.03 : 1.0)
+          .shadow(color: isSelected ? calendarAccent.opacity(0.22) : .clear, radius: 8, y: 3)
           .opacity(isInMonth ? 1 : 0.45)
           .onTapGesture {
             withAnimation(selectionAnimation) {
@@ -311,9 +317,55 @@ private struct CalendarGrid: View {
           }
         }
       }
+      .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.86), value: selectedDate)
+      .background(
+        GeometryReader { proxy in
+          Color.clear
+            .onAppear { gridSize = proxy.size }
+            .onChange(of: proxy.size) { _, newSize in
+              gridSize = newSize
+            }
+        }
+      )
+      .contentShape(Rectangle())
+      .gesture(
+        DragGesture(minimumDistance: 0)
+          .onChanged { value in
+            guard let date = dateAt(location: value.location, in: gridSize) else { return }
+            if let lastDragDate, calendar.isDate(lastDragDate, inSameDayAs: date) {
+              return
+            }
+            lastDragDate = date
+            withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.86)) {
+              selectedDate = date
+            }
+          }
+          .onEnded { _ in
+            lastDragDate = nil
+          }
+      )
     }
     .padding(12)
     .liquidGlass(in: RoundedRectangle(cornerRadius: 18))
+  }
+
+  private func dateAt(location: CGPoint, in size: CGSize) -> Date? {
+    guard size.width > 0, size.height > 0 else { return nil }
+
+    let horizontalSpacing: CGFloat = 6
+    let verticalSpacing: CGFloat = 6
+    let columnCount = 7
+    let cellWidth = (size.width - (CGFloat(columnCount - 1) * horizontalSpacing)) / CGFloat(columnCount)
+    let stepX = cellWidth + horizontalSpacing
+    let stepY = cellHeight + verticalSpacing
+
+    let col = Int((location.x / stepX).rounded(.down))
+    let row = Int((location.y / stepY).rounded(.down))
+
+    guard col >= 0, col < columnCount, row >= 0 else { return nil }
+    let index = row * columnCount + col
+    guard gridDates.indices.contains(index) else { return nil }
+    return gridDates[index]
   }
 }
 
@@ -344,10 +396,10 @@ private struct SelectedDayCard: View {
         Spacer()
         Text("\(entries.count)개 기록")
           .font(.system(size: 12, weight: .bold))
-          .foregroundStyle(.primary)
+          .foregroundStyle(calendarAccent)
           .padding(.horizontal, 10)
           .padding(.vertical, 6)
-          .background(Color.primary.opacity(0.08), in: Capsule())
+          .background(calendarAccent.opacity(0.12), in: Capsule())
       }
 
       if entries.isEmpty {
@@ -362,10 +414,10 @@ private struct SelectedDayCard: View {
             .foregroundStyle(.secondary)
           Text(primaryEmotion)
             .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(calendarAccent)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Color.primary.opacity(0.08), in: Capsule())
+            .background(calendarAccent.opacity(0.12), in: Capsule())
             .contentTransition(.opacity)
         }
 
