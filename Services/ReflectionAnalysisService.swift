@@ -2,7 +2,7 @@ import Foundation
 
 final class ReflectionAnalysisService {
   static let shared = ReflectionAnalysisService()
-  private let adoptionThreshold = 0.35
+  private let adoptionThreshold = 0.08
 
   private init() {}
 
