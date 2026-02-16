@@ -36,12 +36,12 @@ struct ContentView: View {
             if phase == .background {
                 authenticationService.isUnlocked = false
             }
-            if phase == .active && !authenticationService.isUnlocked {
+            if phase == .active && !authenticationService.isUnlocked && !authenticationService.isAuthenticating {
                 authenticationService.authenticate()
             }
         }
         .onAppear {
-            if biometricLockEnabled && !authenticationService.isUnlocked {
+            if biometricLockEnabled && !authenticationService.isUnlocked && !authenticationService.isAuthenticating {
                 authenticationService.authenticate()
             }
         }
@@ -74,6 +74,7 @@ struct ContentView: View {
 
     private var lockOverlay: some View {
         ZStack {
+            // 잠금 상태에서는 앱 본문 대신 단색 배경만 표시
             Color(.systemBackground)
                 .ignoresSafeArea()
 
@@ -85,16 +86,20 @@ struct ContentView: View {
                 Text("Face ID 또는 Touch ID로 잠금을 해제하세요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Button("잠금 해제") {
-                    authenticationService.authenticate()
+
+                if authenticationService.isAuthenticating {
+                    ProgressView()
+                        .progressViewStyle(.circular)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())
             }
             .padding(24)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 28)
+        }
+        .onAppear {
+            if !authenticationService.isAuthenticating && !authenticationService.isUnlocked {
+                authenticationService.authenticate()
+            }
         }
     }
 }
