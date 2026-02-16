@@ -77,25 +77,23 @@ struct ContentView: View {
 
     private var lockOverlay: some View {
         ZStack {
-            // 잠금 상태에서는 앱 본문 대신 단색 배경만 표시
-            Color(.systemBackground)
+            // 잠금 상태에서는 앱 본문을 완전히 가리고 최소 안내만 보여준다.
+            Color(.secondarySystemBackground)
                 .ignoresSafeArea()
 
             VStack(spacing: 12) {
                 Image(systemName: "lock.shield")
                     .font(.system(size: 32))
-                Text("잠금 해제 필요")
-                    .font(.headline)
-                Text("Face ID 또는 Touch ID로 잠금을 해제하세요.")
+                Text("잠금 확인 중")
+                    .font(.headline.weight(.semibold))
+                Text("Face ID 또는 Touch ID를 확인하고 있어요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 ProgressView()
                     .progressViewStyle(.circular)
                     .padding(.top, 2)
             }
-            .padding(24)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 24)
         }
         .onAppear {
             triggerAuthenticationIfNeeded()

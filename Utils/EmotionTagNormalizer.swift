@@ -44,4 +44,9 @@ enum EmotionTagNormalizer {
 
     return result
   }
+
+  // 감정 빈도 집계에서는 중복 출현을 유지해야 하므로 전체 정규화 배열을 제공한다.
+  static func normalizeAll(_ tags: [String]) -> [String] {
+    tags.compactMap { normalize($0) }
+  }
 }
