@@ -4,40 +4,50 @@ struct EmotionalBackgroundView: View {
   
   var body: some View {
     ZStack {
-      // 1. 기본 그라디언트(깊은 톤)
+      // 1. 기본 그라디언트(밝고 따뜻한 톤)
       LinearGradient(
         colors: [
-          Color(red: 0.9, green: 0.94, blue: 1.0), // 차가운 블루
-          Color(red: 0.95, green: 0.92, blue: 0.98), // 부드러운 라벤더
-          Color(red: 1.0, green: 0.95, blue: 0.92)  // 따뜻한 피치
+          Color(red: 1.00, green: 0.98, blue: 0.96), // 크림
+          Color(red: 0.97, green: 0.96, blue: 1.00), // 연보라
+          Color(red: 0.94, green: 0.98, blue: 0.98)  // 민트 화이트
         ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+        startPoint: .top,
+        endPoint: .bottom
       )
       .ignoresSafeArea()
       
-      // 2. 깊이감을 위한 메쉬형 포인트
+      // 2. 분위기 레이어(부드러운 색점)
       GeometryReader { proxy in
-        // 오른쪽 위의 따뜻함
         Circle()
-          .fill(Color(red: 1.0, green: 0.8, blue: 0.8).opacity(0.4))
-          .frame(width: proxy.size.width * 0.8)
-          .blur(radius: 80)
-          .offset(x: proxy.size.width * 0.3, y: -proxy.size.height * 0.2)
+          .fill(Color(red: 1.00, green: 0.82, blue: 0.73).opacity(0.26))
+          .frame(width: proxy.size.width * 0.95)
+          .blur(radius: 95)
+          .offset(x: proxy.size.width * 0.28, y: -proxy.size.height * 0.22)
         
-        // 왼쪽 아래의 차가움
         Circle()
-          .fill(Color(red: 0.7, green: 0.8, blue: 1.0).opacity(0.4))
-          .frame(width: proxy.size.width * 0.8)
-          .blur(radius: 80)
-          .offset(x: -proxy.size.width * 0.3, y: proxy.size.height * 0.6)
+          .fill(Color(red: 0.64, green: 0.87, blue: 0.84).opacity(0.24))
+          .frame(width: proxy.size.width * 0.92)
+          .blur(radius: 92)
+          .offset(x: -proxy.size.width * 0.32, y: proxy.size.height * 0.58)
         
-        // 중앙 포인트
         Circle()
-          .fill(Color(red: 0.9, green: 0.8, blue: 1.0).opacity(0.3))
-          .frame(width: proxy.size.width * 0.6)
-          .blur(radius: 60)
-          .offset(x: proxy.size.width * 0.2, y: proxy.size.height * 0.2)
+          .fill(Color(red: 0.92, green: 0.80, blue: 1.00).opacity(0.20))
+          .frame(width: proxy.size.width * 0.70)
+          .blur(radius: 72)
+          .offset(x: proxy.size.width * 0.06, y: proxy.size.height * 0.18)
+
+        Rectangle()
+          .fill(
+            LinearGradient(
+              colors: [
+                Color.white.opacity(0.28),
+                Color.white.opacity(0.04)
+              ],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+          .blendMode(.softLight)
       }
       .ignoresSafeArea()
     }
