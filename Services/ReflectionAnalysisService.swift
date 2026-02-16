@@ -2,7 +2,7 @@ import Foundation
 
 final class ReflectionAnalysisService {
   static let shared = ReflectionAnalysisService()
-  private let adoptionThreshold = 0.2
+  private let onDeviceMinimumScore = 0.22
 
   private init() {}
 
@@ -13,10 +13,11 @@ final class ReflectionAnalysisService {
     if #available(iOS 26.0, *) {
       do {
         if let onDevice = try await AppleOnDeviceDiaryAnalyzer.analyze(content: content, mood: mood) {
-          let onDeviceScore = AppleOnDeviceDiaryAnalyzer.qualityScore(summary: onDevice.summary, source: content)
-          let fallbackScore = AppleOnDeviceDiaryAnalyzer.qualityScore(summary: fallback.summary, source: content)
-
-          if onDeviceScore >= fallbackScore + adoptionThreshold {
+          let onDeviceScore = AppleOnDeviceDiaryAnalyzer.qualityScore(
+            summary: onDevice.summary,
+            source: content
+          )
+          if onDeviceScore >= onDeviceMinimumScore {
             return onDevice
           }
         }
@@ -87,6 +88,8 @@ private enum AppleOnDeviceDiaryAnalyzer {
     입력된 일기를 기반으로 다음 JSON만 출력해라.
     규칙:
     - summary: 반드시 한 줄. 자연스러운 한국어 문장으로 작성.
+    - "핵심:", "배경:", "감정:" 같은 라벨을 붙이지 마라.
+    - 번호(1.,2.,3.) 형식을 절대 쓰지 마라.
     - 원문 문장을 그대로 길게 복붙하지 말고 핵심만 압축.
     - emotionTags: 감정 태그 0~3개. 없으면 빈 배열.
     - 출력은 JSON 객체 하나만.
@@ -115,8 +118,19 @@ private enum AppleOnDeviceDiaryAnalyzer {
     for fragment in bannedFragments {
       output = output.replacingOccurrences(of: fragment, with: "")
     }
+    output = output.replacingOccurrences(of: "요약:", with: "")
+    output = output.replacingOccurrences(of: "핵심:", with: "")
+    output = output.replacingOccurrences(of: "배경:", with: "")
+    output = output.replacingOccurrences(of: "감정:", with: "")
+    output = output.replacingOccurrences(of: "1.", with: "")
+    output = output.replacingOccurrences(of: "2.", with: "")
+    output = output.replacingOccurrences(of: "3.", with: "")
     output = output.replacingOccurrences(of: "  ", with: " ")
-    return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.hasSuffix(".") || trimmed.hasSuffix("!") || trimmed.hasSuffix("?") {
+      return trimmed
+    }
+    return trimmed + "."
   }
 
   private static func chooseBest(from candidates: [ReflectionAnalysis], source: String) -> ReflectionAnalysis {

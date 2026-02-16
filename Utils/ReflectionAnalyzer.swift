@@ -81,18 +81,17 @@ enum ReflectionAnalyzer {
   }
 
   private static func buildOneLineSummary(main: String, context: String?, emotionTag: String?) -> String {
-    var parts: [String] = []
-    parts.append("오늘은 \(clipped(main, limit: 52)) 중심으로 기록함")
+    var line = clipped(main, limit: 72)
 
     if let context, !context.isEmpty {
-      parts.append("배경은 \(clipped(context, limit: 34))")
+      line += "; " + clipped(context, limit: 46)
     }
 
     if let emotionTag, !emotionTag.isEmpty {
-      parts.append("감정은 \(emotionTag) 쪽이 두드러짐")
+      line += " (\(emotionTag))"
     }
 
-    return parts.joined(separator: ", ")
+    return normalizedSummaryLine(line)
   }
 
   private static func pickMainSentence(from sentences: [String], source: String) -> String {
@@ -225,5 +224,19 @@ enum ReflectionAnalyzer {
   private static func clipped(_ text: String, limit: Int) -> String {
     guard text.count > limit else { return text }
     return String(text.prefix(limit)) + "..."
+  }
+
+  private static func normalizedSummaryLine(_ text: String) -> String {
+    let compact = text
+      .replacingOccurrences(of: "\n", with: " ")
+      .components(separatedBy: .whitespacesAndNewlines)
+      .filter { !$0.isEmpty }
+      .joined(separator: " ")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if compact.hasSuffix(".") || compact.hasSuffix("!") || compact.hasSuffix("?") {
+      return compact
+    }
+    return compact + "."
   }
 }
