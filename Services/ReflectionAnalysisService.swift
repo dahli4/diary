@@ -2,7 +2,7 @@ import Foundation
 
 final class ReflectionAnalysisService {
   static let shared = ReflectionAnalysisService()
-  private let adoptionThreshold = 0.08
+  private let adoptionThreshold = 0.2
 
   private init() {}
 
@@ -86,8 +86,8 @@ private enum AppleOnDeviceDiaryAnalyzer {
     스타일은 반드시 \(summaryStyle)로 고정한다.
     입력된 일기를 기반으로 다음 JSON만 출력해라.
     규칙:
-    - summary: 반드시 3줄. 번호는 1., 2., 3. 형식.
-    - 각 줄은 원문 복붙이 아니라 요약 문장으로 작성.
+    - summary: 반드시 한 줄. 자연스러운 한국어 문장으로 작성.
+    - 원문 문장을 그대로 길게 복붙하지 말고 핵심만 압축.
     - emotionTags: 감정 태그 0~3개. 없으면 빈 배열.
     - 출력은 JSON 객체 하나만.
 
@@ -101,19 +101,13 @@ private enum AppleOnDeviceDiaryAnalyzer {
   }
 
   private static func refineSummary(_ summary: String) -> String {
-    let lines = summary
-      .components(separatedBy: .newlines)
-      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    let singleLine = summary
+      .replacingOccurrences(of: "\n", with: " ")
+      .components(separatedBy: .whitespacesAndNewlines)
       .filter { !$0.isEmpty }
-      .prefix(3)
-      .enumerated()
-      .map { index, line in
-        let cleaned = sanitizeLine(line)
-        if cleaned.hasPrefix("\(index + 1).") { return cleaned }
-        return "\(index + 1). \(cleaned)"
-      }
+      .joined(separator: " ")
 
-    return lines.joined(separator: "\n")
+    return sanitizeLine(singleLine)
   }
 
   private static func sanitizeLine(_ line: String) -> String {
@@ -145,11 +139,10 @@ private enum AppleOnDeviceDiaryAnalyzer {
     let overlapRatio = Double(overlap) / Double(summaryTokens.count)
 
     let uniqueRatio = Double(Set(summaryTokens).count) / Double(summaryTokens.count)
+    let repetitionPenalty = max(0.0, 1.0 - uniqueRatio)
+    let lengthPenalty = summary.count > 110 ? 0.25 : 0.0
 
-    let lineCount = summary.components(separatedBy: .newlines).filter { !$0.isEmpty }.count
-    let linePenalty = abs(3 - lineCount) > 0 ? 0.3 : 0.0
-
-    return overlapRatio * 1.2 + uniqueRatio - linePenalty
+    return overlapRatio * 1.2 + uniqueRatio * 0.4 - repetitionPenalty * 0.4 - lengthPenalty
   }
 
   private static func tokenize(_ text: String) -> [String] {
