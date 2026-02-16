@@ -77,6 +77,7 @@ struct ContentView: View {
 
     private var lockOverlay: some View {
         ZStack {
+            // 잠금 상태에서는 앱 본문 대신 단색 배경만 표시
             Color(.systemBackground)
                 .ignoresSafeArea()
 
