@@ -4,36 +4,36 @@ struct EmotionalBackgroundView: View {
   
   var body: some View {
     ZStack {
-      // 1. 기본 그라디언트(노란기를 줄인 웜 뉴트럴)
+      // 1. 누런끼를 줄인 중성 톤 그라디언트
       LinearGradient(
         colors: [
-          Color(red: 0.98, green: 0.97, blue: 0.96), // 웜 화이트
-          Color(red: 0.96, green: 0.94, blue: 0.93), // 샌드 베이지
-          Color(red: 0.95, green: 0.92, blue: 0.91)  // 로즈 베이지
+          Color(red: 0.99, green: 0.97, blue: 0.97), // 소프트 아이보리
+          Color(red: 0.97, green: 0.95, blue: 0.96), // 라이트 블러시 그레이
+          Color(red: 0.95, green: 0.93, blue: 0.95)  // 뮤트 로즈 베이지
         ],
         startPoint: .top,
         endPoint: .bottom
       )
       .ignoresSafeArea()
       
-      // 2. 분위기 레이어(부드러운 색점)
+      // 2. 채도를 낮춘 분위기 레이어
       GeometryReader { proxy in
         Circle()
-          .fill(Color(red: 0.97, green: 0.80, blue: 0.75).opacity(0.18))
-          .frame(width: proxy.size.width * 0.88)
-          .blur(radius: 102)
+          .fill(Color(red: 0.96, green: 0.83, blue: 0.82).opacity(0.18))
+          .frame(width: proxy.size.width * 0.95)
+          .blur(radius: 95)
           .offset(x: proxy.size.width * 0.28, y: -proxy.size.height * 0.22)
         
         Circle()
-          .fill(Color(red: 0.92, green: 0.84, blue: 0.78).opacity(0.14))
-          .frame(width: proxy.size.width * 0.86)
-          .blur(radius: 98)
+          .fill(Color(red: 0.91, green: 0.88, blue: 0.94).opacity(0.16))
+          .frame(width: proxy.size.width * 0.92)
+          .blur(radius: 92)
           .offset(x: -proxy.size.width * 0.32, y: proxy.size.height * 0.58)
         
         Circle()
-          .fill(Color(red: 0.94, green: 0.86, blue: 0.84).opacity(0.12))
-          .frame(width: proxy.size.width * 0.64)
-          .blur(radius: 84)
+          .fill(Color(red: 0.95, green: 0.90, blue: 0.88).opacity(0.14))
+          .frame(width: proxy.size.width * 0.70)
+          .blur(radius: 72)
           .offset(x: proxy.size.width * 0.06, y: proxy.size.height * 0.18)
 
         Rectangle()
