@@ -1,8 +1,6 @@
 import SwiftUI
 import SwiftData
 
-private let calendarAccent = Color(red: 0.90, green: 0.27, blue: 0.30)
-
 struct CalendarView: View {
   @Query(filter: #Predicate<Item> { $0.isTrashed == false }, sort: \Item.timestamp, order: .reverse) private var items: [Item]
   @State private var selectedDate: Date = Date()
@@ -150,10 +148,10 @@ private struct CalendarHeader: View {
         } label: {
           Text("오늘")
             .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(calendarAccent)
+            .foregroundStyle(AppTheme.pointColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(calendarAccent.opacity(0.12), in: Capsule())
+            .background(AppTheme.pointColor.opacity(0.12), in: Capsule())
         }
 
         Button {
@@ -163,9 +161,9 @@ private struct CalendarHeader: View {
         } label: {
           Image(systemName: "chevron.left")
             .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(calendarAccent.opacity(0.82))
+            .foregroundStyle(AppTheme.pointColor.opacity(0.82))
             .padding(8)
-            .background(calendarAccent.opacity(0.10))
+            .background(AppTheme.pointColor.opacity(0.10))
             .clipShape(Circle())
         }
         
@@ -180,9 +178,9 @@ private struct CalendarHeader: View {
         } label: {
           Image(systemName: "chevron.right")
             .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(calendarAccent.opacity(0.82))
+            .foregroundStyle(AppTheme.pointColor.opacity(0.82))
             .padding(8)
-            .background(calendarAccent.opacity(0.10))
+            .background(AppTheme.pointColor.opacity(0.10))
             .clipShape(Circle())
         }
       }
@@ -286,6 +284,15 @@ private struct CalendarGrid: View {
             Text("\(calendar.component(.day, from: date))")
               .font(.system(size: 14, weight: .bold))
               .foregroundStyle(isInMonth ? Color.primary : Color.secondary.opacity(0.4))
+              .frame(width: 28, height: 28)
+              .background(
+                Circle()
+                  .fill(isSelected ? AppTheme.pointColor.opacity(0.14) : Color.clear)
+              )
+              .overlay(
+                Circle()
+                  .stroke(isSelected ? AppTheme.pointColor.opacity(0.42) : Color.clear, lineWidth: 1.2)
+              )
 
             HStack(spacing: 3) {
               Circle()
@@ -299,16 +306,8 @@ private struct CalendarGrid: View {
             }
           }
           .frame(maxWidth: .infinity, minHeight: cellHeight)
-          .background(
-            RoundedRectangle(cornerRadius: 10)
-              .fill(isSelected ? calendarAccent.opacity(0.14) : Color.clear)
-          )
-          .overlay(
-            RoundedRectangle(cornerRadius: 10)
-              .stroke(isSelected ? calendarAccent.opacity(0.35) : Color.clear, lineWidth: 1.1)
-          )
-          .scaleEffect(isSelected ? 1.03 : 1.0)
-          .shadow(color: isSelected ? calendarAccent.opacity(0.22) : .clear, radius: 8, y: 3)
+          .scaleEffect(isSelected ? 1.02 : 1.0)
+          .shadow(color: isSelected ? AppTheme.pointColor.opacity(0.18) : .clear, radius: 6, y: 2)
           .opacity(isInMonth ? 1 : 0.45)
           .onTapGesture {
             withAnimation(selectionAnimation) {
@@ -396,10 +395,10 @@ private struct SelectedDayCard: View {
         Spacer()
         Text("\(entries.count)개 기록")
           .font(.system(size: 12, weight: .bold))
-          .foregroundStyle(calendarAccent)
+          .foregroundStyle(AppTheme.pointColor)
           .padding(.horizontal, 10)
           .padding(.vertical, 6)
-          .background(calendarAccent.opacity(0.12), in: Capsule())
+          .background(AppTheme.pointColor.opacity(0.12), in: Capsule())
       }
 
       if entries.isEmpty {
@@ -414,10 +413,10 @@ private struct SelectedDayCard: View {
             .foregroundStyle(.secondary)
           Text(primaryEmotion)
             .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(calendarAccent)
+            .foregroundStyle(AppTheme.pointColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(calendarAccent.opacity(0.12), in: Capsule())
+            .background(AppTheme.pointColor.opacity(0.12), in: Capsule())
             .contentTransition(.opacity)
         }
 
