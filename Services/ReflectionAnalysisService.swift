@@ -7,7 +7,8 @@ final class ReflectionAnalysisService {
   private init() {}
 
   func analyze(content: String, mood: String?) async -> ReflectionAnalysis {
-    let fallback = ReflectionAnalyzer.analyze(content: content, mood: mood)
+    // 감정 태그는 무드 이모지 기반으로만 생성한다.
+    let moodTags = MoodEmotionMapper.tags(for: mood)
 
     #if canImport(FoundationModels)
     if #available(iOS 26.0, *) {
@@ -18,16 +19,17 @@ final class ReflectionAnalysisService {
             source: content
           )
           if onDeviceScore >= onDeviceMinimumScore {
-            return onDevice
+            return ReflectionAnalysis(summary: onDevice.summary, emotionTags: moodTags)
           }
         }
       } catch {
-        // 온디바이스 모델이 없을 때 로컬 규칙으로 폴백
+        // 인텔리전스 미지원/비활성 기기에서는 요약을 생성하지 않는다.
       }
+      return ReflectionAnalysis(summary: "", emotionTags: moodTags)
     }
     #endif
 
-    return fallback
+    return ReflectionAnalysis(summary: "", emotionTags: moodTags)
   }
 }
 

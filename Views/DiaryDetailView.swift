@@ -86,9 +86,10 @@ struct DiaryDetailView: View {
                 horizontalChips(item.tags.map { "#\($0)" }, tint: Color.white.opacity(0.5))
               }
 
-              if !item.emotionTags.isEmpty {
+              let moodTags = MoodEmotionMapper.tags(for: item.mood)
+              if !moodTags.isEmpty {
                 horizontalChips(
-                  EmotionTagNormalizer.normalizeList(item.emotionTags.filter { $0 != "감정기록" }, limit: 10),
+                  moodTags,
                   tint: Color.accentColor.opacity(0.14)
                 )
               }
@@ -146,7 +147,8 @@ struct DiaryDetailView: View {
 
   private var hasReflectionData: Bool {
     let hasSummary = !(item.autoSummary?.isEmpty ?? true)
-    return hasSummary || !item.tags.isEmpty || !item.emotionTags.isEmpty
+    let hasMoodTag = !MoodEmotionMapper.tags(for: item.mood).isEmpty
+    return hasSummary || !item.tags.isEmpty || hasMoodTag
   }
 
   @ViewBuilder

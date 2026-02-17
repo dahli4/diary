@@ -42,13 +42,13 @@ struct DiaryCardView: View {
             .lineLimit(1)
         }
 
-        let emotionChips = EmotionTagNormalizer.normalizeList(item.emotionTags.filter { $0 != "감정기록" }, limit: 2)
+        let emotionChips = MoodEmotionMapper.tags(for: item.mood)
         if !emotionChips.isEmpty {
           HStack(spacing: 6) {
             Image(systemName: "waveform.path.ecg")
               .font(.system(size: 10))
               .foregroundStyle(.secondary.opacity(0.8))
-            ForEach(Array(emotionChips.prefix(2)), id: \.self) { tag in
+            ForEach(emotionChips, id: \.self) { tag in
               Text(tag)
                 .font(.system(size: 10, weight: .medium))
                 .padding(.horizontal, 7)

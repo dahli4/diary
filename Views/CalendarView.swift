@@ -74,9 +74,7 @@ struct CalendarView: View {
   }
 
   private var selectedDayEmotion: String {
-    let tags = EmotionTagNormalizer.normalizeAll(
-      selectedDayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
-    )
+    let tags = selectedDayItems.flatMap { MoodEmotionMapper.tags(for: $0.mood) }
     let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
     return counts.sorted { $0.value > $1.value }.first?.key ?? "-"
   }
@@ -103,9 +101,7 @@ struct CalendarView: View {
   }
   
   private var mostFrequentEmotion: String {
-    let tags = EmotionTagNormalizer.normalizeAll(
-      monthItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
-    )
+    let tags = monthItems.flatMap { MoodEmotionMapper.tags(for: $0.mood) }
     let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
     return counts.sorted { $0.value > $1.value }.first?.key ?? "-"
   }
@@ -230,9 +226,7 @@ private struct CalendarGrid: View {
   private func markerColor(for date: Date) -> Color {
     let dayItems = dayEntries(for: date)
     if dayItems.isEmpty { return .clear }
-    let tags = EmotionTagNormalizer.normalizeAll(
-      dayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
-    )
+    let tags = dayItems.flatMap { MoodEmotionMapper.tags(for: $0.mood) }
     let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
     let primary = counts.sorted { $0.value > $1.value }.first?.key ?? ""
     if primary.contains("행복") || primary.contains("기쁨") || primary.contains("설렘") || primary.contains("감사") {
@@ -377,15 +371,6 @@ private struct SelectedDayCard: View {
     DiaryDateFormatter.fullDate.string(from: date)
   }
 
-  private var topTitles: [String] {
-    entries.compactMap { item in
-      let title = (item.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-      return title.isEmpty ? nil : title
-    }
-    .prefix(2)
-    .map { $0 }
-  }
-
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .center) {
@@ -407,29 +392,21 @@ private struct SelectedDayCard: View {
           .foregroundStyle(.secondary)
           .contentTransition(.opacity)
       } else {
-        HStack(spacing: 8) {
-          Text("주요 감정")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.secondary)
-          Text(primaryEmotion)
-            .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(AppTheme.pointColor)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(AppTheme.pointColor.opacity(0.12), in: Capsule())
-            .contentTransition(.opacity)
-        }
-
-        if !topTitles.isEmpty {
-          VStack(alignment: .leading, spacing: 4) {
-            ForEach(topTitles, id: \.self) { title in
-              Text("• \(title)")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.9))
-                .contentTransition(.opacity)
-            }
+        if primaryEmotion != "-" {
+          HStack(spacing: 8) {
+            Text("주요 감정")
+              .font(.system(size: 12, weight: .semibold))
+              .foregroundStyle(.secondary)
+            Text(primaryEmotion)
+              .font(.system(size: 13, weight: .bold))
+              .foregroundStyle(AppTheme.pointColor)
+              .padding(.horizontal, 10)
+              .padding(.vertical, 5)
+              .background(AppTheme.pointColor.opacity(0.12), in: Capsule())
+              .contentTransition(.opacity)
           }
         }
+
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
