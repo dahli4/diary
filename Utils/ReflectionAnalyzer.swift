@@ -32,7 +32,9 @@ enum ReflectionAnalyzer {
     "문제", "생각", "기분", "때문", "관련", "대한", "위해", "에서", "으로", "에게", "했다", "하는"
   ]
 
-  private static let issueHints = ["왜", "문제", "한계", "성능", "오류", "실패", "안됨", "안돼", "부담"]
+  private static let contrastMarkers = ["하지만", "근데", "그런데", "다만", "반면", "그래도"]
+  private static let actionMarkers = ["필요", "해야", "원인", "해결", "고민", "계획", "시도", "변경", "개선"]
+  private static let frictionMarkers = ["안", "못", "없", "어렵", "힘들", "불편", "부담", "막막"]
 
   static func prompt(excluding current: String? = nil) -> String {
     if prompts.isEmpty { return "오늘 가장 오래 남을 장면은 무엇인가요?" }
@@ -127,13 +129,33 @@ enum ReflectionAnalyzer {
         partial + Double(frequencies[token] ?? 0)
       }
       let uniqueBonus = tokens.isEmpty ? 0.0 : Double(Set(tokens).count) / Double(tokens.count)
-      let hintBonus = issueHints.contains(where: { sentence.localizedCaseInsensitiveContains($0) }) ? 1.2 : 0.0
+      let intentBonus = sentenceIntentScore(sentence, tokens: tokens)
       let lengthBonus = (sentence.count >= 14 && sentence.count <= 90) ? 0.2 : -0.1
-      return (sentence, keywordScore + uniqueBonus + hintBonus + lengthBonus)
+      return (sentence, keywordScore + uniqueBonus + intentBonus + lengthBonus)
     }
     .sorted { $0.score > $1.score }
 
     return ranked.first?.sentence ?? sentences[0]
+  }
+
+  private static func sentenceIntentScore(_ sentence: String, tokens: [String]) -> Double {
+    var score: Double = 0
+
+    if sentence.contains("?") || sentence.contains("？") {
+      score += 0.55
+    }
+    if contrastMarkers.contains(where: { sentence.localizedCaseInsensitiveContains($0) }) {
+      score += 0.38
+    }
+    if actionMarkers.contains(where: { sentence.localizedCaseInsensitiveContains($0) }) {
+      score += 0.34
+    }
+    if frictionMarkers.contains(where: { sentence.localizedCaseInsensitiveContains($0) }) {
+      score += 0.26
+    }
+
+    let meaningfulDensity = tokens.isEmpty ? 0.0 : Double(Set(tokens).count) / Double(tokens.count)
+    return score + meaningfulDensity * 0.2
   }
 
   private static func pickContextSentence(from sentences: [String], excluding main: String) -> String? {
