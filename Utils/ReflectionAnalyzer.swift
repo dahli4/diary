@@ -34,7 +34,12 @@ enum ReflectionAnalyzer {
 
   private static let contrastMarkers = ["하지만", "근데", "그런데", "다만", "반면", "그래도"]
   private static let actionMarkers = ["필요", "해야", "원인", "해결", "고민", "계획", "시도", "변경", "개선"]
-  private static let frictionMarkers = ["안", "못", "없", "어렵", "힘들", "불편", "부담", "막막"]
+  private static let frictionMarkers = [
+    "안돼", "안됨",
+    "못하", "못했",
+    "없다", "없었",
+    "어렵", "힘들", "불편", "부담", "막막"
+  ]
 
   static func prompt(excluding current: String? = nil) -> String {
     if prompts.isEmpty { return "오늘 가장 오래 남을 장면은 무엇인가요?" }
@@ -52,8 +57,9 @@ enum ReflectionAnalyzer {
     }
 
     let sentences = extractSentences(from: cleaned)
-    let main = pickMainSentence(from: sentences, source: cleaned)
-    let context = pickContextSentence(from: sentences, excluding: main)
+    let candidateSentences = expandedCandidateSentences(from: sentences, source: cleaned)
+    let main = pickMainSentence(from: candidateSentences, source: cleaned)
+    let context = pickContextSentence(from: candidateSentences, excluding: main)
 
     var detected = detectEmotionTags(in: cleaned)
     if let mood, let moodTag = moodTag(from: mood) {
@@ -86,7 +92,7 @@ enum ReflectionAnalyzer {
     var parts: [String] = [clipped(main, limit: 68)]
 
     if let context, !context.isEmpty {
-      parts.append("그 과정에서 \(clipped(context, limit: 34))")
+      parts.append(contextPhrase(main: main, context: context))
     }
 
     if let emotionTag, !emotionTag.isEmpty {
@@ -94,6 +100,17 @@ enum ReflectionAnalyzer {
     }
 
     return normalizedSummaryLine(parts.joined(separator: " "))
+  }
+
+  private static func contextPhrase(main: String, context: String) -> String {
+    let clippedContext = clipped(context, limit: 34)
+    if main.contains("?") || main.contains("？") {
+      return "정리하면 \(clippedContext)"
+    }
+    if contrastMarkers.contains(where: { context.localizedCaseInsensitiveContains($0) }) {
+      return "한편 \(clippedContext)"
+    }
+    return "그리고 \(clippedContext)"
   }
 
   private static func emotionTail(for emotionTag: String) -> String {
@@ -129,7 +146,7 @@ enum ReflectionAnalyzer {
         partial + Double(frequencies[token] ?? 0)
       }
       let uniqueBonus = tokens.isEmpty ? 0.0 : Double(Set(tokens).count) / Double(tokens.count)
-      let intentBonus = sentenceIntentScore(sentence, tokens: tokens)
+      let intentBonus = sentenceIntentScore(sentence)
       let lengthBonus = (sentence.count >= 14 && sentence.count <= 90) ? 0.2 : -0.1
       return (sentence, keywordScore + uniqueBonus + intentBonus + lengthBonus)
     }
@@ -138,7 +155,7 @@ enum ReflectionAnalyzer {
     return ranked.first?.sentence ?? sentences[0]
   }
 
-  private static func sentenceIntentScore(_ sentence: String, tokens: [String]) -> Double {
+  private static func sentenceIntentScore(_ sentence: String) -> Double {
     var score: Double = 0
 
     if sentence.contains("?") || sentence.contains("？") {
@@ -153,9 +170,7 @@ enum ReflectionAnalyzer {
     if frictionMarkers.contains(where: { sentence.localizedCaseInsensitiveContains($0) }) {
       score += 0.26
     }
-
-    let meaningfulDensity = tokens.isEmpty ? 0.0 : Double(Set(tokens).count) / Double(tokens.count)
-    return score + meaningfulDensity * 0.2
+    return score
   }
 
   private static func pickContextSentence(from sentences: [String], excluding main: String) -> String? {
@@ -163,8 +178,11 @@ enum ReflectionAnalyzer {
     let mainTokenSet = Set(wordTokens(from: main))
 
     for sentence in sentences where sentence != main {
+      if main.localizedCaseInsensitiveContains(sentence) || sentence.localizedCaseInsensitiveContains(main) {
+        continue
+      }
       let candidateSet = Set(wordTokens(from: sentence))
-      if jaccard(mainTokenSet, candidateSet) < 0.72 {
+      if jaccard(mainTokenSet, candidateSet) < 0.62 {
         return sentence
       }
     }
@@ -202,6 +220,28 @@ enum ReflectionAnalyzer {
       .components(separatedBy: CharacterSet(charactersIn: ".!?。！？\n"))
       .map { stripTrailingPunctuation($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
       .filter { !$0.isEmpty }
+  }
+
+  // 온디바이스 모델이 없는 경우를 대비해, 문장이 하나일 때 절 단위 후보를 추가로 만든다.
+  private static func expandedCandidateSentences(from sentences: [String], source: String) -> [String] {
+    guard !sentences.isEmpty else { return [source] }
+    guard sentences.count == 1 else { return sentences }
+    guard let only = sentences.first, only.count >= 56 else { return sentences }
+
+    let clauseDelimiters = [",", " 그리고 ", " 그런데 ", " 하지만 ", " 그래서 ", " 근데 ", ";", ":"]
+    var clauses = [only]
+
+    for delimiter in clauseDelimiters {
+      clauses = clauses.flatMap { sentence in
+        sentence
+          .components(separatedBy: delimiter)
+          .map { stripTrailingPunctuation($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+          .filter { $0.count >= 12 }
+      }
+    }
+
+    let deduped = Array(NSOrderedSet(array: clauses)) as? [String] ?? clauses
+    return deduped.isEmpty ? sentences : deduped
   }
 
   private static func tokenFrequency(from text: String) -> [String: Int] {
