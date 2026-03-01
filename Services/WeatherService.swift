@@ -7,64 +7,37 @@ class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegate {
   let objectWillChange = ObservableObjectPublisher()
 
   // Xcode > Build Settings > INFOPLIST_KEY_OPENWEATHER_API_KEY 에 키를 설정하세요.
-  // 키가 없으면 날씨 기능이 비활성화됩니다.
   static let apiKey: String = {
     Bundle.main.infoDictionary?["OPENWEATHER_API_KEY"] as? String ?? ""
   }()
   static let shared = WeatherService()
 
-  // 날씨 조회 에러 상태 — DiaryEditorView에서 observe
-  @Published var fetchError: WeatherFetchError?
+  // 사용자에게 보여줄 에러 메시지 (기술 용어 없음)
+  @Published var userFacingError: String?
 
   private let locationManager = CLLocationManager()
-
-  // 델리게이트 콜백을 비동기 흐름으로 연결
   private var weatherContinuation: CheckedContinuation<WeatherType, Never>?
 
-  enum WeatherFetchError: LocalizedError {
-    case locationDenied
-    case apiKeyMissing
-    case networkError(Error)
-
-    var errorDescription: String? {
-      switch self {
-      case .locationDenied:
-        return "위치 권한이 없어 날씨를 불러올 수 없습니다. 설정 앱에서 위치 접근을 허용해 주세요."
-      case .apiKeyMissing:
-        return "날씨 API 키가 설정되지 않았습니다."
-      case .networkError:
-        return "날씨 정보를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요."
-      }
-    }
-  }
-
-  override init() {
-    super.init()
-    locationManager.delegate = self
-    locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
-  }
-
   enum WeatherType: String, CaseIterable, Codable {
-    case sunny = "sun.max.fill"
-    case cloudy = "cloud.fill"
-    case rain = "cloud.rain.fill"
-    case snow = "cloud.snow.fill"
+    case sunny    = "sun.max.fill"
+    case cloudy   = "cloud.fill"
+    case rain     = "cloud.rain.fill"
+    case snow     = "cloud.snow.fill"
     case lightning = "cloud.bolt.fill"
-    case unknown = "questionmark.circle"
+    case unknown  = "questionmark.circle"
 
     var description: String {
       switch self {
-      case .sunny: return "맑음"
-      case .cloudy: return "흐림"
-      case .rain: return "비"
-      case .snow: return "눈"
+      case .sunny:    return "맑음"
+      case .cloudy:   return "흐림"
+      case .rain:     return "비"
+      case .snow:     return "눈"
       case .lightning: return "번개"
-      case .unknown: return "알 수 없음"
+      case .unknown:  return "알 수 없음"
       }
     }
   }
 
-  // 오픈웨더맵 응답 모델
   struct WeatherResponse: Codable {
     let weather: [WeatherParams]
   }
@@ -74,39 +47,67 @@ class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegate {
     let main: String
   }
 
+  override init() {
+    super.init()
+    locationManager.delegate = self
+    locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+  }
+
   func fetchCurrentWeather() async -> WeatherType {
-    fetchError = nil
+    userFacingError = nil
 
-    // API 키 없으면 에러 상태 설정 후 반환
+    // API 키 미설정 → 조용히 무시 (사용자에게 에러 노출 안 함)
     guard !WeatherService.apiKey.isEmpty else {
-      fetchError = .apiKeyMissing
       return .unknown
     }
 
-    // 권한 요청
-    if locationManager.authorizationStatus == .notDetermined {
-      locationManager.requestWhenInUseAuthorization()
-    }
+    let status = locationManager.authorizationStatus
 
-    // 위치 권한 없으면 에러 상태 설정
-    guard locationManager.authorizationStatus == .authorizedWhenInUse ||
-          locationManager.authorizationStatus == .authorizedAlways else {
-      if locationManager.authorizationStatus != .notDetermined {
-        fetchError = .locationDenied
+    switch status {
+    case .authorizedWhenInUse, .authorizedAlways:
+      // 이미 권한 있으면 바로 위치 조회
+      return await requestLocationAndWait()
+
+    case .notDetermined:
+      // 권한 요청 → 사용자 응답을 대기 (locationManagerDidChangeAuthorization에서 처리)
+      return await withCheckedContinuation { continuation in
+        if let existing = weatherContinuation {
+          existing.resume(returning: .unknown)
+        }
+        weatherContinuation = continuation
+        locationManager.requestWhenInUseAuthorization()
       }
+
+    case .denied, .restricted:
+      userFacingError = "날씨 기능을 사용하려면 설정 앱에서 위치 접근을 허용해 주세요."
       return .unknown
-    }
 
-    return await withCheckedContinuation { continuation in
-      if let existing = weatherContinuation {
-        existing.resume(returning: .unknown)
-      }
-      weatherContinuation = continuation
-      locationManager.requestLocation()
+    @unknown default:
+      return .unknown
     }
   }
 
-  // MARK: - 위치 델리게이트
+  // MARK: - CLLocationManagerDelegate
+
+  // 권한 상태 변경 → 허용 시 자동으로 위치 조회 재개
+  nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    Task { @MainActor in
+      switch manager.authorizationStatus {
+      case .authorizedWhenInUse, .authorizedAlways:
+        // 권한 허용됨 → 위치 요청 시작
+        if self.weatherContinuation != nil {
+          self.locationManager.requestLocation()
+        }
+      case .denied, .restricted:
+        self.userFacingError = "날씨 기능을 사용하려면 설정 앱에서 위치 접근을 허용해 주세요."
+        self.resume(with: .unknown)
+      case .notDetermined:
+        break
+      @unknown default:
+        self.resume(with: .unknown)
+      }
+    }
+  }
 
   nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
     Task { @MainActor in
@@ -121,8 +122,20 @@ class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegate {
 
   nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     Task { @MainActor in
-      self.fetchError = .networkError(error)
+      self.userFacingError = "날씨 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요."
       self.resume(with: .unknown)
+    }
+  }
+
+  // MARK: - Private
+
+  private func requestLocationAndWait() async -> WeatherType {
+    return await withCheckedContinuation { continuation in
+      if let existing = weatherContinuation {
+        existing.resume(returning: .unknown)
+      }
+      weatherContinuation = continuation
+      locationManager.requestLocation()
     }
   }
 
@@ -145,7 +158,7 @@ class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegate {
         return mapWeatherID(id: firstWeather.id)
       }
     } catch {
-      fetchError = .networkError(error)
+      userFacingError = "날씨 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요."
     }
 
     return .unknown
@@ -157,9 +170,9 @@ class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegate {
     case 200...232: return .lightning
     case 300...531: return .rain
     case 600...622: return .snow
-    case 800: return .sunny
+    case 800:       return .sunny
     case 801...804: return .cloudy
-    default: return .sunny
+    default:        return .sunny
     }
   }
 }

@@ -60,9 +60,8 @@ class DiaryEditorViewModel: ObservableObject {
       let fetchedWeather = await WeatherService.shared.fetchCurrentWeather()
       await MainActor.run {
         if fetchedWeather == .unknown {
-          // 에러 메시지 노출
-          self.weatherError = WeatherService.shared.fetchError?.localizedDescription
-            ?? "날씨 정보를 불러올 수 없습니다."
+          // 사용자 친화적 메시지만 노출 (API 키 이슈 등 기술적 에러는 표시 안 함)
+          self.weatherError = WeatherService.shared.userFacingError
         } else {
           self.weather = fetchedWeather.description
           self.weatherError = nil
