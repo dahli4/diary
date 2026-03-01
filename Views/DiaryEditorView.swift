@@ -67,7 +67,30 @@ struct DiaryEditorView: View {
           .disabled((viewModel.title.isEmpty && viewModel.content.isEmpty) || viewModel.isSaving)
         }
         .padding()
-        
+
+        // 날씨 에러 배너
+        if let weatherError = viewModel.weatherError {
+          HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+              .foregroundStyle(.orange)
+            Text(weatherError)
+              .font(.caption)
+              .foregroundStyle(.primary)
+            Spacer()
+            Button {
+              viewModel.weatherError = nil
+            } label: {
+              Image(systemName: "xmark")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .background(.ultraThinMaterial)
+          .transition(.move(edge: .top).combined(with: .opacity))
+        }
+
         ScrollView {
           VStack(alignment: .leading, spacing: 20) {
             

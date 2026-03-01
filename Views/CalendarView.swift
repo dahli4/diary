@@ -91,6 +91,7 @@ private struct CalendarHeader: View {
             .padding(.vertical, 7)
             .background(AppTheme.pointColor.opacity(0.12), in: Capsule())
         }
+        .accessibilityLabel("오늘로 이동")
 
         Button {
           viewModel.moveMonth(by: -1)
@@ -102,6 +103,7 @@ private struct CalendarHeader: View {
             .background(AppTheme.pointColor.opacity(0.10))
             .clipShape(Circle())
         }
+        .accessibilityLabel("이전 달")
 
         Text(DiaryDateFormatter.yearMonth.string(from: viewModel.displayedMonth))
           .font(.system(size: 14, weight: .semibold))
@@ -117,6 +119,7 @@ private struct CalendarHeader: View {
             .background(AppTheme.pointColor.opacity(0.10))
             .clipShape(Circle())
         }
+        .accessibilityLabel("다음 달")
       }
     }
   }
@@ -303,6 +306,7 @@ private struct SelectedDayCard: View {
           .padding(.horizontal, 10)
           .padding(.vertical, 6)
           .background(AppTheme.pointColor.opacity(0.12), in: Capsule())
+          .accessibilityLabel("이번 달 \(entries.count)개 기록")
       }
 
       if entries.isEmpty {
@@ -370,6 +374,7 @@ private struct CalendarMetricCard: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(14)
     .liquidGlass(in: RoundedRectangle(cornerRadius: 14))
+    .accessibilityElement(children: .combine)
   }
 }
 

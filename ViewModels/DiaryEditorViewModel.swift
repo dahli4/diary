@@ -14,6 +14,7 @@ class DiaryEditorViewModel: ObservableObject {
   @Published var mood: String? // 감정 상태 추가
   @Published var reflectionPrompt: String = ""
   @Published var isSaving = false
+  @Published var weatherError: String?
   @Published var photoItem: PhotosPickerItem? {
     didSet {
       loadPhotoData()
@@ -54,10 +55,22 @@ class DiaryEditorViewModel: ObservableObject {
   }
   
   func fetchWeather() {
+    weatherError = nil
     Task {
       let fetchedWeather = await WeatherService.shared.fetchCurrentWeather()
       await MainActor.run {
-        self.weather = fetchedWeather.description
+        if fetchedWeather == .unknown {
+          // 실제 에러가 있는 경우에만 에러 메시지 노출
+          if let error = WeatherService.shared.fetchError {
+            self.weatherError = error.localizedDescription
+          } else {
+            // 권한 결정 대기 등으로 인해 날씨가 아직 결정되지 않은 상태이므로 배너를 띄우지 않음
+            self.weatherError = nil
+          }
+        } else {
+          self.weather = fetchedWeather.description
+          self.weatherError = nil
+        }
       }
     }
   }

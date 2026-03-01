@@ -66,6 +66,7 @@ struct MainListView: View {
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())
                 }
+                .accessibilityLabel("이전 달")
 
                 Button {
                   viewModel.moveMonth(by: 1)
@@ -76,6 +77,7 @@ struct MainListView: View {
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())
                 }
+                .accessibilityLabel("다음 달")
 
                 Divider()
                   .frame(height: 20)
@@ -89,6 +91,7 @@ struct MainListView: View {
                     .background(Color.primary.opacity(0.05))
                     .clipShape(Circle())
                 }
+                .accessibilityLabel("검색")
 
                 Button(action: {
                   initialPromptForNewEntry = nil
@@ -101,6 +104,7 @@ struct MainListView: View {
                     .background(Color.primary.opacity(0.05))
                     .clipShape(Circle())
                 }
+                .accessibilityLabel("새 일기 작성")
               }
             }
             .padding(.horizontal, 24)
@@ -117,6 +121,7 @@ struct MainListView: View {
                 .padding(.horizontal)
                 .id(viewModel.dailyQuote)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .accessibilityHint("탭하면 새 문구로 바꿉니다")
             }
             .padding(.top, 2)
             .onTapGesture {
