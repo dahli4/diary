@@ -1,0 +1,17 @@
+# 빌드 산출물
+build/
+*.o
+*.a
+*.dylib
+DerivedData/
+*.xcarchive
+
+# Xcode 사용자별 설정
+*.xcuserdata/
+xcuserdata/
+
+# 시크릿 - 실제 API 키가 담긴 파일은 커밋하지 않음
+Config/Secrets.xcconfig
+
+# macOS
+.DS_Store

@@ -7,8 +7,15 @@ class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegate {
   let objectWillChange = ObservableObjectPublisher()
 
     // 구역: 설정
-    // 할 일: 실제 오픈웨더맵 에이피아이 키로 교체
-    static let apiKey = "e40fc82f34f8fcf3cfbad5b61182a74a"
+    // API 키는 Info.plist 의 OPENWEATHER_API_KEY 항목에서 읽어옵니다.
+    // Config/Secrets.xcconfig.template 을 참고하여 Config/Secrets.xcconfig 를 설정하세요.
+    static let apiKey: String = {
+        guard let key = Bundle.main.infoDictionary?["OPENWEATHER_API_KEY"] as? String, !key.isEmpty else {
+            assertionFailure("OPENWEATHER_API_KEY 가 Info.plist 에 설정되지 않았습니다. Config/Secrets.xcconfig.template 을 참고하세요.")
+            return ""
+        }
+        return key
+    }()
     static let shared = WeatherService()
     
     private let locationManager = CLLocationManager()
