@@ -14,6 +14,7 @@ class DiaryEditorViewModel: ObservableObject {
   @Published var mood: String? // 감정 상태 추가
   @Published var reflectionPrompt: String = ""
   @Published var isSaving = false
+  @Published var weatherError: String?
   @Published var photoItem: PhotosPickerItem? {
     didSet {
       loadPhotoData()
@@ -54,10 +55,18 @@ class DiaryEditorViewModel: ObservableObject {
   }
   
   func fetchWeather() {
+    weatherError = nil
     Task {
       let fetchedWeather = await WeatherService.shared.fetchCurrentWeather()
       await MainActor.run {
-        self.weather = fetchedWeather.description
+        if fetchedWeather == .unknown {
+          // 에러 메시지 노출
+          self.weatherError = WeatherService.shared.fetchError?.localizedDescription
+            ?? "날씨 정보를 불러올 수 없습니다."
+        } else {
+          self.weather = fetchedWeather.description
+          self.weatherError = nil
+        }
       }
     }
   }

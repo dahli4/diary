@@ -92,6 +92,7 @@ struct SettingsView: View {
             Toggle("Face ID / Touch ID 잠금", isOn: $biometricLockEnabled)
               .tint(AppTheme.pointColor)
               .disabled(!authenticationService.isBiometricAvailable)
+              .accessibilityHint("생체 인식으로 앱을 잠급니다")
           }
           .listRowBackground(AppTheme.formRowBackground(for: colorScheme))
 

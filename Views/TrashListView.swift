@@ -31,6 +31,7 @@ struct TrashListView: View {
             viewModel.deleteAll()
           }
           .tint(.red)
+          .accessibilityLabel("휴지통 모두 비우기")
         }
       }
     }
@@ -109,6 +110,7 @@ struct TrashItemRow: View {
             .frame(width: 44, height: 60)
             .contentShape(Rectangle())
         }
+        .accessibilityLabel("복구")
 
         Divider()
           .frame(height: 30)
@@ -121,6 +123,7 @@ struct TrashItemRow: View {
             .frame(width: 44, height: 60)
             .contentShape(Rectangle())
         }
+        .accessibilityLabel("영구 삭제")
       }
       .frame(height: 60)
       .padding(.trailing, 8)
