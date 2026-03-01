@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // MARK: - SettingsViewModel
 // @AppStorage는 View에서만 사용 가능하므로 메서드는 값을 매개변수로 받는 방식으로 설계
