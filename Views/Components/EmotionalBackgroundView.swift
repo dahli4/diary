@@ -24,13 +24,13 @@ struct EmotionalBackgroundView: View {
           .frame(width: proxy.size.width * 0.95)
           .blur(radius: 95)
           .offset(x: proxy.size.width * 0.28, y: -proxy.size.height * 0.22)
-        
+
         Circle()
           .fill(glow[1].opacity(isDark ? 0.16 : 0.13))
           .frame(width: proxy.size.width * 0.92)
           .blur(radius: 92)
           .offset(x: -proxy.size.width * 0.32, y: proxy.size.height * 0.58)
-        
+
         Circle()
           .fill(glow[2].opacity(isDark ? 0.12 : 0.10))
           .frame(width: proxy.size.width * 0.70)

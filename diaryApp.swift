@@ -10,8 +10,14 @@ struct diaryApp: App {
     let schema = Schema([
       Item.self,
     ])
-    let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-    
+    // iCloud + 로컬 자동 동기화 (오프라인에서도 로컬 저장으로 정상 동작)
+    // 사전 요구사항: Xcode > Signing & Capabilities > iCloud (CloudKit 체크) 추가 필요
+    let modelConfiguration = ModelConfiguration(
+      schema: schema,
+      isStoredInMemoryOnly: false,
+      cloudKitDatabase: .automatic
+    )
+
     do {
       return try ModelContainer(for: schema, configurations: [modelConfiguration])
     } catch {

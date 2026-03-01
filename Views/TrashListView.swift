@@ -5,14 +5,18 @@ struct TrashListView: View {
   @Query(filter: #Predicate<Item> { $0.isTrashed == true }, sort: \Item.timestamp, order: .reverse) private var trashedItems: [Item]
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
-  
+
+  // MARK: - ViewModel
+
+  @StateObject private var viewModel = TrashListViewModel()
+
   var body: some View {
     ZStack {
-      // 1. 배경
+      // 배경
       EmotionalBackgroundView()
-      
-      // 2. 내용
-      if trashedItems.isEmpty {
+
+      // 내용
+      if viewModel.isEmpty {
         emptyView
       } else {
         trashList
@@ -22,16 +26,24 @@ struct TrashListView: View {
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ToolbarItem(placement: .navigationBarTrailing) {
-        if !trashedItems.isEmpty {
+        if !viewModel.isEmpty {
           Button("모두 비우기", role: .destructive) {
-            deleteAll()
+            viewModel.deleteAll()
           }
           .tint(.red)
         }
       }
     }
+    .onAppear {
+      viewModel.updateItems(trashedItems)
+      viewModel.setModelContext(modelContext)
+    }
+    .onChange(of: trashedItems) { _, newItems in
+      // @Query 결과 변경 시 ViewModel 데이터 동기화
+      viewModel.updateItems(newItems)
+    }
   }
-  
+
   private var emptyView: some View {
     VStack(spacing: 16) {
       Image(systemName: "trash")
@@ -42,7 +54,7 @@ struct TrashListView: View {
         .foregroundStyle(.secondary)
     }
   }
-  
+
   private var trashList: some View {
     ScrollView {
       LazyVStack(spacing: 16) {
@@ -62,21 +74,13 @@ struct TrashListView: View {
       .padding(.bottom, 60)
     }
   }
-  
-  private func deleteAll() {
-    withAnimation {
-      for item in trashedItems {
-        modelContext.delete(item)
-      }
-    }
-  }
 }
 
 struct TrashItemRow: View {
   let item: Item
   let restoreAction: () -> Void
   let deleteAction: () -> Void
-  
+
   var body: some View {
     HStack(spacing: 0) {
       // 왼쪽: 정보
@@ -85,16 +89,16 @@ struct TrashItemRow: View {
           .font(.headline)
           .foregroundStyle(.primary)
           .lineLimit(1)
-        
+
         Text(item.timestamp, format: .dateTime.year().month().day())
           .font(.caption)
           .foregroundStyle(.secondary)
       }
       .padding(.leading, 16)
       .padding(.vertical, 16)
-      
+
       Spacer()
-      
+
       // 오른쪽: 액션
       HStack(spacing: 0) {
         // 복구
@@ -105,10 +109,10 @@ struct TrashItemRow: View {
             .frame(width: 44, height: 60)
             .contentShape(Rectangle())
         }
-        
+
         Divider()
           .frame(height: 30)
-        
+
         // 영구 삭제
         Button(role: .destructive, action: deleteAction) {
           Image(systemName: "xmark")

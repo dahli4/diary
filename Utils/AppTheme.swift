@@ -8,9 +8,9 @@ enum AppTheme {
   static func backgroundGradient(for scheme: ColorScheme) -> [Color] {
     if scheme == .dark {
       return [
-        Color(red: 0.10, green: 0.10, blue: 0.13),
-        Color(red: 0.12, green: 0.11, blue: 0.15),
-        Color(red: 0.14, green: 0.12, blue: 0.17)
+        Color(red: 0.10, green: 0.10, blue: 0.11),
+        Color(red: 0.11, green: 0.11, blue: 0.12),
+        Color(red: 0.13, green: 0.13, blue: 0.14)
       ]
     }
     return [
@@ -24,9 +24,9 @@ enum AppTheme {
   static func glowColors(for scheme: ColorScheme) -> [Color] {
     if scheme == .dark {
       return [
-        Color(red: 0.60, green: 0.25, blue: 0.28),
-        Color(red: 0.32, green: 0.28, blue: 0.52),
-        Color(red: 0.34, green: 0.34, blue: 0.40)
+        Color(red: 0.30, green: 0.30, blue: 0.32),
+        Color(red: 0.25, green: 0.25, blue: 0.28),
+        Color(red: 0.28, green: 0.28, blue: 0.30)
       ]
     }
     return [
