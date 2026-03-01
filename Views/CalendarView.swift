@@ -3,8 +3,7 @@ import SwiftData
 
 struct CalendarView: View {
   @Query(filter: #Predicate<Item> { $0.isTrashed == false }, sort: \Item.timestamp, order: .reverse) private var items: [Item]
-  @State private var selectedDate: Date = Date()
-  @State private var displayedMonth: Date = Date() // 표시 월 전용 (스와이프/버튼으로만 변경)
+  @StateObject private var viewModel = CalendarViewModel()
   private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
 
   // 월 전환 스와이프 — 날짜 선택 드래그와 구분하기 위해 최소 이동 거리 및 수평 비율 조건 사용
@@ -14,13 +13,7 @@ struct CalendarView: View {
         let h = value.translation.width
         let v = abs(value.translation.height)
         guard abs(h) > v * 1.8 else { return }
-        withAnimation(selectionAnimation) {
-          displayedMonth = Calendar.current.date(
-            byAdding: .month,
-            value: h < 0 ? 1 : -1,
-            to: displayedMonth
-          ) ?? displayedMonth
-        }
+        viewModel.moveMonth(by: h < 0 ? 1 : -1)
       }
   }
 
@@ -31,37 +24,37 @@ struct CalendarView: View {
 
       ScrollView(showsIndicators: false) {
         VStack(spacing: 14) {
-          CalendarHeader(displayedMonth: $displayedMonth, selectedDate: $selectedDate)
+          CalendarHeader(viewModel: viewModel)
             .padding(.top, 8)
 
-          CalendarGrid(items: activeItems, displayedMonth: displayedMonth, selectedDate: $selectedDate)
+          CalendarGrid(viewModel: viewModel)
 
           SelectedDayCard(
-            date: selectedDate,
-            entries: selectedDayItems,
-            primaryEmotion: selectedDayEmotion
+            date: viewModel.selectedDate,
+            entries: viewModel.selectedDayItems,
+            primaryEmotion: viewModel.selectedDayEmotion
           )
-          .animation(selectionAnimation, value: selectedDate)
+          .animation(selectionAnimation, value: viewModel.selectedDate)
 
           VStack(spacing: 10) {
             HStack(spacing: 10) {
               CalendarMetricCard(
                 title: "연속 기록",
-                value: "\(currentStreak)일",
+                value: "\(viewModel.currentStreak)일",
                 subtitle: "오늘까지 이어진 기록",
                 systemImage: "flame.fill"
               )
               CalendarMetricCard(
                 title: "이번 달 기록일",
-                value: "\(monthlyActiveDays)일",
-                subtitle: "총 \(monthItems.count)개 작성",
+                value: "\(viewModel.monthlyActiveDays)일",
+                subtitle: "총 \(viewModel.monthItems.count)개 작성",
                 systemImage: "calendar.badge.clock"
               )
             }
             CalendarMetricCard(
               title: "이번 달 감정 톤",
-              value: mostFrequentEmotion,
-              subtitle: monthlyToneCopy,
+              value: viewModel.mostFrequentEmotion,
+              subtitle: viewModel.monthlyToneCopy,
               systemImage: "sparkles"
             )
           }
@@ -71,86 +64,13 @@ struct CalendarView: View {
       }
     }
     .simultaneousGesture(monthSwipeGesture)
-  }
-  
-  private var activeItems: [Item] {
-    items.filter { !$0.isTrashed }
-  }
-
-  private var monthItems: [Item] {
-    let calendar = Calendar.current
-    let components = calendar.dateComponents([.year, .month], from: displayedMonth)
-    guard let startOfMonth = calendar.date(from: components),
-          let nextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else { return [] }
-    return activeItems.filter { $0.timestamp >= startOfMonth && $0.timestamp < nextMonth }
-  }
-
-  private var selectedDayItems: [Item] {
-    let calendar = Calendar.current
-    return activeItems
-      .filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }
-      .sorted { $0.timestamp > $1.timestamp }
-  }
-
-  private var selectedDayEmotion: String {
-    let tags = EmotionTagNormalizer.normalizeAll(
-      selectedDayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
-    )
-    let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
-    return counts.sorted { $0.value > $1.value }.first?.key ?? "-"
-  }
-
-  private var monthlyActiveDays: Int {
-    let calendar = Calendar.current
-    let days = Set(monthItems.map { calendar.startOfDay(for: $0.timestamp) })
-    return days.count
-  }
-
-  private var currentStreak: Int {
-    let calendar = Calendar.current
-    let daySet = Set(activeItems.map { calendar.startOfDay(for: $0.timestamp) })
-    var streak = 0
-    var cursor = calendar.startOfDay(for: Date())
-
-    while daySet.contains(cursor) {
-      streak += 1
-      guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-      cursor = previousDay
-    }
-
-    return streak
-  }
-  
-  private var mostFrequentEmotion: String {
-    let tags = EmotionTagNormalizer.normalizeAll(
-      monthItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
-    )
-    let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
-    return counts.sorted { $0.value > $1.value }.first?.key ?? "-"
-  }
-
-  private var monthlyToneCopy: String {
-    switch mostFrequentEmotion {
-    case "-", "감정기록":
-      return "감정 태그가 더 쌓이면 흐름을 보여줄게요"
-    case let value where value.contains("행복") || value.contains("기쁨") || value.contains("설렘"):
-      return "밝은 에너지가 자주 등장한 달이에요"
-    case let value where value.contains("불안") || value.contains("걱정"):
-      return "긴장감이 높았던 달로 보여요"
-    case let value where value.contains("분노") || value.contains("짜증"):
-      return "스트레스 신호가 자주 포착됐어요"
-    case let value where value.contains("슬픔") || value.contains("우울"):
-      return "감정 회복이 필요한 흐름이 보여요"
-    default:
-      return "감정 패턴이 안정적으로 쌓이고 있어요"
-    }
+    .onAppear { viewModel.updateItems(items) }
+    .onChange(of: items) { _, newItems in viewModel.updateItems(newItems) }
   }
 }
 
 private struct CalendarHeader: View {
-  @Binding var displayedMonth: Date
-  @Binding var selectedDate: Date  // 오늘 버튼 클릭시 오늘 날짜로도 초기화
-  private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
+  @ObservedObject var viewModel: CalendarViewModel
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -162,10 +82,7 @@ private struct CalendarHeader: View {
 
       HStack(spacing: 8) {
         Button {
-          withAnimation(selectionAnimation) {
-            selectedDate = Date()
-            displayedMonth = Date()
-          }
+          viewModel.goToToday()
         } label: {
           Text("오늘")
             .font(.system(size: 12, weight: .bold))
@@ -176,9 +93,7 @@ private struct CalendarHeader: View {
         }
 
         Button {
-          withAnimation(selectionAnimation) {
-            displayedMonth = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonth) ?? displayedMonth
-          }
+          viewModel.moveMonth(by: -1)
         } label: {
           Image(systemName: "chevron.left")
             .font(.system(size: 16, weight: .medium))
@@ -188,14 +103,12 @@ private struct CalendarHeader: View {
             .clipShape(Circle())
         }
 
-        Text(DiaryDateFormatter.yearMonth.string(from: displayedMonth))
+        Text(DiaryDateFormatter.yearMonth.string(from: viewModel.displayedMonth))
           .font(.system(size: 14, weight: .semibold))
           .foregroundStyle(.secondary)
 
         Button {
-          withAnimation(selectionAnimation) {
-            displayedMonth = Calendar.current.date(byAdding: .month, value: 1, to: displayedMonth) ?? displayedMonth
-          }
+          viewModel.moveMonth(by: 1)
         } label: {
           Image(systemName: "chevron.right")
             .font(.system(size: 16, weight: .medium))
@@ -210,31 +123,29 @@ private struct CalendarHeader: View {
 }
 
 private struct CalendarGrid: View {
-  let items: [Item]
-  let displayedMonth: Date  // 그리드 표시 월 (스와이프/버튼으로만 변경)
-  @Binding var selectedDate: Date  // 날짜 선택 전용
+  @ObservedObject var viewModel: CalendarViewModel
   private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
   @State private var gridSize: CGSize = .zero
   @State private var lastDragDate: Date?
-  
+
   private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
   private let cellHeight: CGFloat = 46
-  
+
   private var calendar: Calendar {
     var cal = Calendar.current
     cal.firstWeekday = 1
     return cal
   }
-  
+
   private var monthDays: [Date] {
-    let comps = calendar.dateComponents([.year, .month], from: displayedMonth)
+    let comps = calendar.dateComponents([.year, .month], from: viewModel.displayedMonth)
     guard let startOfMonth = calendar.date(from: comps),
           let range = calendar.range(of: .day, in: .month, for: startOfMonth) else { return [] }
     return range.compactMap { day in
       calendar.date(byAdding: .day, value: day - 1, to: startOfMonth)
     }
   }
-  
+
   private var gridDates: [Date] {
     guard let firstDay = monthDays.first,
           let lastDay = monthDays.last else { return [] }
@@ -249,41 +160,11 @@ private struct CalendarGrid: View {
     }
     return leading + monthDays + trailing
   }
-  
-  private func markerColor(for date: Date) -> Color {
-    let dayItems = dayEntries(for: date)
-    if dayItems.isEmpty { return .clear }
-    let tags = EmotionTagNormalizer.normalizeAll(
-      dayItems.flatMap(\.emotionTags).filter { $0 != "감정기록" }
-    )
-    let counts = Dictionary(grouping: tags, by: { $0 }).mapValues(\.count)
-    let primary = counts.sorted { $0.value > $1.value }.first?.key ?? ""
-    if primary.contains("행복") || primary.contains("기쁨") || primary.contains("설렘") || primary.contains("감사") {
-      return Color(red: 0.99, green: 0.78, blue: 0.35)
-    }
-    if primary.contains("슬픔") || primary.contains("우울") || primary.contains("허무") {
-      return Color(red: 0.40, green: 0.62, blue: 0.95)
-    }
-    if primary.contains("분노") || primary.contains("짜증") || primary.contains("화") {
-      return Color(red: 0.96, green: 0.34, blue: 0.32)
-    }
-    if primary.contains("불안") || primary.contains("걱정") || primary.contains("두려움") {
-      return Color(red: 0.30, green: 0.80, blue: 0.78)
-    }
-    if primary.contains("평온") || primary.contains("차분") || primary.contains("안정") {
-      return Color(red: 0.38, green: 0.82, blue: 0.55)
-    }
-    return Color.accentColor.opacity(0.7)
-  }
-  
+
   private func isCurrentMonth(_ date: Date) -> Bool {
-    calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
+    calendar.isDate(date, equalTo: viewModel.displayedMonth, toGranularity: .month)
   }
 
-  private func dayEntries(for date: Date) -> [Item] {
-    items.filter { calendar.isDate($0.timestamp, inSameDayAs: date) }
-  }
-  
   var body: some View {
     VStack(spacing: 8) {
       HStack(spacing: 6) {
@@ -294,12 +175,12 @@ private struct CalendarGrid: View {
             .frame(maxWidth: .infinity)
         }
       }
-      
+
       LazyVGrid(columns: columns, spacing: 6) {
         ForEach(gridDates, id: \.self) { date in
-          let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
-          let entries = dayEntries(for: date)
-          let marker = markerColor(for: date)
+          let isSelected = calendar.isDate(date, inSameDayAs: viewModel.selectedDate)
+          let entries = viewModel.dayEntries(for: date)
+          let marker = viewModel.markerColor(for: date)
           let isInMonth = isCurrentMonth(date)
           let hasEntries = !entries.isEmpty
 
@@ -334,12 +215,12 @@ private struct CalendarGrid: View {
           .opacity(isInMonth ? 1 : 0.45)
           .onTapGesture {
             withAnimation(selectionAnimation) {
-              selectedDate = date
+              viewModel.selectDate(date)
             }
           }
         }
       }
-      .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.86), value: selectedDate)
+      .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.86), value: viewModel.selectedDate)
       .background(
         GeometryReader { proxy in
           Color.clear
@@ -359,7 +240,7 @@ private struct CalendarGrid: View {
             }
             lastDragDate = date
             withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.86)) {
-              selectedDate = date
+              viewModel.selectDate(date)
             }
           }
           .onEnded { _ in
@@ -466,7 +347,7 @@ private struct CalendarMetricCard: View {
   let value: String
   let subtitle: String
   let systemImage: String
-  
+
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 7) {

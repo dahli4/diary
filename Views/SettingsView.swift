@@ -23,6 +23,10 @@ struct SettingsView: View {
   @EnvironmentObject private var authenticationService: AuthenticationService
   @Environment(\.colorScheme) private var colorScheme
 
+  // MARK: - ViewModel
+
+  @StateObject private var viewModel = SettingsViewModel()
+
   var body: some View {
     ZStack {
       EmotionalBackgroundView()
@@ -37,7 +41,7 @@ struct SettingsView: View {
               HStack {
                 Text("화면 모드")
                 Spacer()
-                Text(appearanceModeLabel)
+                Text(viewModel.appearanceModeLabel(for: appearanceMode))
                   .foregroundStyle(.secondary)
               }
             }
@@ -52,7 +56,12 @@ struct SettingsView: View {
             Toggle("매일 알림 받기", isOn: $notificationsEnabled)
               .tint(AppTheme.pointColor)
               .onChange(of: notificationsEnabled) { _, newValue in
-                handleNotificationToggle(isEnabled: newValue)
+                viewModel.handleNotificationToggle(
+                  isEnabled: newValue,
+                  hour: notificationHour,
+                  minute: notificationMinute,
+                  onDenied: { notificationsEnabled = false }
+                )
               }
           }
           .listRowBackground(AppTheme.formRowBackground(for: colorScheme))
@@ -61,12 +70,12 @@ struct SettingsView: View {
             DatePicker(
               "알림 시간",
               selection: Binding(
-                get: { makeNotificationDate() },
+                get: { viewModel.makeNotificationDate(hour: notificationHour, minute: notificationMinute) },
                 set: { date in
                   let cal = Calendar.current
                   notificationHour = cal.component(.hour, from: date)
                   notificationMinute = cal.component(.minute, from: date)
-                  rescheduleNotification()
+                  viewModel.rescheduleNotification(hour: notificationHour, minute: notificationMinute)
                 }
               ),
               displayedComponents: .hourAndMinute
@@ -115,61 +124,11 @@ struct SettingsView: View {
     }
     .navigationTitle("설정")
     .onAppear {
-      NotificationManager.shared.getAuthorizationStatus { status in
-        DispatchQueue.main.async {
-          notificationsEnabled = (status == .authorized || status == .provisional)
-        }
+      // 알림 권한 상태를 확인하여 토글 상태를 갱신한다
+      viewModel.checkNotificationStatus { isEnabled in
+        notificationsEnabled = isEnabled
       }
       authenticationService.checkBiometryAvailability()
-    }
-  }
-
-  private var appearanceModeLabel: String {
-    switch appearanceMode {
-    case 1: return "라이트"
-    case 2: return "다크"
-    default: return "시스템"
-    }
-  }
-
-  // 저장된 시/분으로 Date 객체 생성
-  private func makeNotificationDate() -> Date {
-    var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-    components.hour = notificationHour
-    components.minute = notificationMinute
-    return Calendar.current.date(from: components) ?? Date()
-  }
-
-  // 알림 시간 변경 후 재등록
-  private func rescheduleNotification() {
-    NotificationManager.shared.removeDailyNotification()
-    let prompt = ReflectionAnalyzer.prompt()
-    NotificationManager.shared.scheduleDailyNotification(
-      hour: notificationHour,
-      minute: notificationMinute,
-      prompt: prompt
-    )
-  }
-
-  private func handleNotificationToggle(isEnabled: Bool) {
-
-    if isEnabled {
-      NotificationManager.shared.requestAuthorization { granted in
-        DispatchQueue.main.async {
-          if granted {
-            let prompt = ReflectionAnalyzer.prompt()
-            NotificationManager.shared.scheduleDailyNotification(
-              hour: notificationHour,
-              minute: notificationMinute,
-              prompt: prompt
-            )
-          } else {
-            notificationsEnabled = false
-          }
-        }
-      }
-    } else {
-      NotificationManager.shared.removeDailyNotification()
     }
   }
 }

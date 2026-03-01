@@ -8,22 +8,15 @@ struct SearchView: View {
          sort: \Item.timestamp, order: .reverse)
   private var allItems: [Item]
 
-  @State private var searchText = ""
+  // MARK: - ViewModel
+
+  @StateObject private var viewModel = SearchViewModel()
+
+  // MARK: - View 전용 상태
+
   @State private var editingItem: Item?
   @State private var showEdit = false
   @FocusState private var isSearchFocused: Bool
-
-  private var filteredItems: [Item] {
-    let query = searchText.trimmingCharacters(in: .whitespaces)
-    guard !query.isEmpty else { return [] }
-    let lower = query.lowercased()
-    return allItems.filter { item in
-      (item.title?.lowercased().contains(lower) == true) ||
-      (item.content?.lowercased().contains(lower) == true) ||
-      item.tags.contains(where: { $0.lowercased().contains(lower) }) ||
-      item.emotionTags.contains(where: { $0.lowercased().contains(lower) })
-    }
-  }
 
   var body: some View {
     NavigationStack {
@@ -38,12 +31,12 @@ struct SearchView: View {
               Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
                 .font(.system(size: 15))
-              TextField("제목, 내용, 태그로 검색", text: $searchText)
+              TextField("제목, 내용, 태그로 검색", text: $viewModel.searchText)
                 .focused($isSearchFocused)
                 .submitLabel(.search)
-              if !searchText.isEmpty {
+              if !viewModel.searchText.isEmpty {
                 Button {
-                  searchText = ""
+                  viewModel.clearSearch()
                 } label: {
                   Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.secondary)
@@ -65,20 +58,20 @@ struct SearchView: View {
           .padding(.bottom, 12)
 
           // 결과 목록
-          if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+          if viewModel.isSearchEmpty {
             emptyPrompt(
               icon: "magnifyingglass",
               message: "검색어를 입력하세요"
             )
-          } else if filteredItems.isEmpty {
+          } else if viewModel.filteredItems.isEmpty {
             emptyPrompt(
               icon: "doc.text.magnifyingglass",
-              message: "'\(searchText)'에 대한 결과가 없어요"
+              message: "'\(viewModel.searchText)'에 대한 결과가 없어요"
             )
           } else {
             ScrollView {
               LazyVStack(spacing: 0) {
-                ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
+                ForEach(Array(viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
                   VStack(spacing: 0) {
                     NavigationLink(destination: DiaryDetailView(item: item)) {
                       DiaryCardView(item: item)
@@ -102,7 +95,7 @@ struct SearchView: View {
                     .clipped()
                     .buttonStyle(ScaleButtonStyle())
 
-                    if index < filteredItems.count - 1 {
+                    if index < viewModel.filteredItems.count - 1 {
                       Divider()
                         .opacity(0.35)
                         .padding(.leading, 28)
@@ -127,6 +120,11 @@ struct SearchView: View {
     }
     .onAppear {
       isSearchFocused = true
+      viewModel.updateItems(allItems)
+    }
+    .onChange(of: allItems) { _, newItems in
+      // @Query 결과 변경 시 ViewModel 데이터 동기화
+      viewModel.updateItems(newItems)
     }
   }
 

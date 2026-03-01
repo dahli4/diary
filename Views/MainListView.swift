@@ -3,20 +3,33 @@ import SwiftData
 
 struct MainListView: View {
   @Environment(\.modelContext) private var modelContext
-  @State private var currentMonth = Date()
+
+  // MARK: - ViewModel
+
+  /// 월 이동 및 오늘의 문구 상태를 관리하는 ViewModel
+  @StateObject private var viewModel = MainListViewModel()
+
+  // MARK: - View 전용 상태
+
   @State private var showEditor = false
   @State private var editingItem: Item?
   @State private var showEdit = false
-  @State private var dailyQuote: String = QuoteGenerator.randomQuote // 오늘의 문구 상태
   @State private var initialPromptForNewEntry: String?
   @State private var showSearch = false
+
+  // MARK: - 바인딩
+
   @Binding var openComposerToken: Int
   @Binding var reminderPrompt: String?
-  
-  // 스와이프 진행 중 여부 — 일기 카드 NavigationLink 충돌 방지
+
+  // MARK: - 스와이프 상태
+
+  /// 스와이프 진행 중 여부 — 일기 카드 NavigationLink 충돌 방지
   @GestureState private var isSwiping = false
 
-  // 월 전환 스와이프 — 전체 화면 어디서든 수평으로 밀면 월 이동
+  // MARK: - 제스처
+
+  /// 월 전환 스와이프 — 전체 화면 어디서든 수평으로 밀면 월 이동
   private var monthSwipeGesture: some Gesture {
     DragGesture(minimumDistance: 60)
       .updating($isSwiping) { _, state, _ in state = true }
@@ -24,13 +37,7 @@ struct MainListView: View {
         let h = value.translation.width
         let v = abs(value.translation.height)
         guard abs(h) > v * 1.8 else { return }
-        withAnimation {
-          currentMonth = Calendar.current.date(
-            byAdding: .month,
-            value: h < 0 ? 1 : -1,
-            to: currentMonth
-          ) ?? currentMonth
-        }
+        viewModel.moveMonth(by: h < 0 ? 1 : -1)
       }
   }
 
@@ -43,7 +50,7 @@ struct MainListView: View {
         ScrollView {
           VStack(spacing: 24) {
             HStack(alignment: .center) {
-              Text(DiaryDateFormatter.yearMonth.string(from: currentMonth))
+              Text(DiaryDateFormatter.yearMonth.string(from: viewModel.currentMonth))
                 .font(.system(size: 26, weight: .bold, design: .serif))
                 .foregroundStyle(.primary)
 
@@ -51,9 +58,7 @@ struct MainListView: View {
 
               HStack(spacing: 8) {
                 Button {
-                  withAnimation {
-                    currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth) ?? currentMonth
-                  }
+                  viewModel.moveMonth(by: -1)
                 } label: {
                   Image(systemName: "chevron.left")
                     .font(.system(size: 18, weight: .medium))
@@ -63,9 +68,7 @@ struct MainListView: View {
                 }
 
                 Button {
-                  withAnimation {
-                    currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth) ?? currentMonth
-                  }
+                  viewModel.moveMonth(by: 1)
                 } label: {
                   Image(systemName: "chevron.right")
                     .font(.system(size: 18, weight: .medium))
@@ -104,7 +107,7 @@ struct MainListView: View {
             .padding(.top, 20)
 
             VStack(spacing: 8) {
-              Text(dailyQuote)
+              Text(viewModel.dailyQuote)
                 .font(.subheadline)
                 .foregroundStyle(.primary.opacity(0.8))
                 .multilineTextAlignment(.center)
@@ -112,18 +115,16 @@ struct MainListView: View {
                 .minimumScaleFactor(0.8)
                 .frame(height: 32)
                 .padding(.horizontal)
-                .id(dailyQuote)
+                .id(viewModel.dailyQuote)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
             .padding(.top, 2)
             .onTapGesture {
-              withAnimation {
-                dailyQuote = QuoteGenerator.getNewQuote(current: dailyQuote)
-              }
+              viewModel.refreshQuote()
             }
 
             // 스와이프 중에는 목록 비활성화 → NavigationLink 충돌 방지
-            DiaryFilteredList(month: currentMonth, editingItem: $editingItem, showEdit: $showEdit)
+            DiaryFilteredList(month: viewModel.currentMonth, editingItem: $editingItem, showEdit: $showEdit)
               .padding(.horizontal, 16)
               .padding(.bottom, 40)
               .disabled(isSwiping)
@@ -138,12 +139,12 @@ struct MainListView: View {
       .fullScreenCover(isPresented: $showEditor) {
         NavigationStack {
           DiaryEditorView(item: nil, initialPrompt: initialPromptForNewEntry)
-        } 
+        }
       }
       .fullScreenCover(isPresented: $showEdit) {
         if let editingItem {
           NavigationStack {
-          DiaryEditorView(item: editingItem)
+            DiaryEditorView(item: editingItem)
           }
         }
       }
@@ -167,14 +168,14 @@ struct DiaryFilteredList: View {
   @Query private var items: [Item]
   @Binding var editingItem: Item?
   @Binding var showEdit: Bool
-  
+
   init(month: Date, editingItem: Binding<Item?>, showEdit: Binding<Bool>) {
     _editingItem = editingItem
     _showEdit = showEdit
     let calendar = Calendar.current
     let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: month))!
     let nextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth)!
-    
+
     let predicate = #Predicate<Item> { item in
       item.isTrashed == false &&
       item.timestamp >= startOfMonth &&
@@ -182,7 +183,7 @@ struct DiaryFilteredList: View {
     }
     _items = Query(filter: predicate, sort: \Item.timestamp, order: .reverse)
   }
-  
+
   var body: some View {
     if items.isEmpty {
       EmptyStateView()
@@ -198,37 +199,37 @@ struct DiaryFilteredList: View {
         }
 
         LazyVStack(spacing: 0) {
-        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-          VStack(spacing: 0) {
-            NavigationLink(destination: DiaryDetailView(item: item)) {
-              DiaryCardView(item: item)
-                .contextMenu {
-                  Button {
-                    editingItem = item
-                    showEdit = true
-                  } label: {
-                    Label("수정", systemImage: "pencil")
-                  }
-                  Button(role: .destructive) {
-                    withAnimation {
-                      item.isTrashed = true
+          ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            VStack(spacing: 0) {
+              NavigationLink(destination: DiaryDetailView(item: item)) {
+                DiaryCardView(item: item)
+                  .contextMenu {
+                    Button {
+                      editingItem = item
+                      showEdit = true
+                    } label: {
+                      Label("수정", systemImage: "pencil")
                     }
-                  } label: {
-                    Label("삭제", systemImage: "trash")
+                    Button(role: .destructive) {
+                      withAnimation {
+                        item.isTrashed = true
+                      }
+                    } label: {
+                      Label("삭제", systemImage: "trash")
+                    }
                   }
-                }
-            }
-            .frame(height: DiaryCardView.rowHeight)
-            .clipped()
-            .buttonStyle(ScaleButtonStyle())
+              }
+              .frame(height: DiaryCardView.rowHeight)
+              .clipped()
+              .buttonStyle(ScaleButtonStyle())
 
-            if index < items.count - 1 {
-              Divider()
-                .opacity(0.35)
-                .padding(.leading, 28)
+              if index < items.count - 1 {
+                Divider()
+                  .opacity(0.35)
+                  .padding(.leading, 28)
+              }
             }
           }
-        }
         }
       }
     }
