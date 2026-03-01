@@ -3,17 +3,18 @@ import SwiftData
 
 @Model
 final class Item {
-  var timestamp: Date
+  // CloudKit 동기화 호환을 위해 기본값 명시
+  var timestamp: Date = Date()
   var photoData: Data?
-  var tags: [String]
-  var emotionTags: [String]
+  var tags: [String] = []
+  var emotionTags: [String] = []
   var title: String?
   var content: String?
   var reflectionPrompt: String?
   var autoSummary: String?
   var weather: String?
-  var mood: String? // 감정 프로퍼티 추가
-  var isTrashed: Bool
+  var mood: String?
+  var isTrashed: Bool = false
   
   init(timestamp: Date, photoData: Data? = nil, tags: [String] = [], emotionTags: [String] = [], title: String? = nil, content: String? = nil, reflectionPrompt: String? = nil, autoSummary: String? = nil, weather: String? = nil, mood: String? = nil, isTrashed: Bool = false) {
     self.timestamp = timestamp

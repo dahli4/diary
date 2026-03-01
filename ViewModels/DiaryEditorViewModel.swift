@@ -99,6 +99,15 @@ class DiaryEditorViewModel: ObservableObject {
       )
       modelContext.insert(newItem)
     }
+
+    // 위젯 데이터 갱신: 저장 직후 오늘의 기록 상태를 반영한다.
+    let savedTitle = title.isEmpty ? nil : title
+    WidgetDataService.update(
+      lastMood: mood,
+      lastTitle: savedTitle,
+      wroteToday: Calendar.current.isDateInToday(selectedDate),
+      streakCount: 0 // TODO: 연속 기록 계산 추가
+    )
   }
 
   func regeneratePrompt() {

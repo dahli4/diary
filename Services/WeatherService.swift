@@ -8,7 +8,7 @@ class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     // 구역: 설정
     // 할 일: 실제 오픈웨더맵 에이피아이 키로 교체
-    static let apiKey = "YOUR_OPENWEATHERMAP_API_KEY"
+    static let apiKey = "e40fc82f34f8fcf3cfbad5b61182a74a"
     static let shared = WeatherService()
     
     private let locationManager = CLLocationManager()

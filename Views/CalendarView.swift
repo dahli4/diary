@@ -4,8 +4,26 @@ import SwiftData
 struct CalendarView: View {
   @Query(filter: #Predicate<Item> { $0.isTrashed == false }, sort: \Item.timestamp, order: .reverse) private var items: [Item]
   @State private var selectedDate: Date = Date()
+  @State private var displayedMonth: Date = Date() // 표시 월 전용 (스와이프/버튼으로만 변경)
   private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
-  
+
+  // 월 전환 스와이프 — 날짜 선택 드래그와 구분하기 위해 최소 이동 거리 및 수평 비율 조건 사용
+  private var monthSwipeGesture: some Gesture {
+    DragGesture(minimumDistance: 60)
+      .onEnded { value in
+        let h = value.translation.width
+        let v = abs(value.translation.height)
+        guard abs(h) > v * 1.8 else { return }
+        withAnimation(selectionAnimation) {
+          displayedMonth = Calendar.current.date(
+            byAdding: .month,
+            value: h < 0 ? 1 : -1,
+            to: displayedMonth
+          ) ?? displayedMonth
+        }
+      }
+  }
+
   var body: some View {
     ZStack {
       EmotionalBackgroundView()
@@ -13,10 +31,10 @@ struct CalendarView: View {
 
       ScrollView(showsIndicators: false) {
         VStack(spacing: 14) {
-          CalendarHeader(selectedDate: $selectedDate)
+          CalendarHeader(displayedMonth: $displayedMonth, selectedDate: $selectedDate)
             .padding(.top, 8)
 
-          CalendarGrid(items: activeItems, selectedDate: $selectedDate)
+          CalendarGrid(items: activeItems, displayedMonth: displayedMonth, selectedDate: $selectedDate)
 
           SelectedDayCard(
             date: selectedDate,
@@ -52,6 +70,7 @@ struct CalendarView: View {
         .padding(.bottom, 110)
       }
     }
+    .simultaneousGesture(monthSwipeGesture)
   }
   
   private var activeItems: [Item] {
@@ -60,7 +79,7 @@ struct CalendarView: View {
 
   private var monthItems: [Item] {
     let calendar = Calendar.current
-    let components = calendar.dateComponents([.year, .month], from: selectedDate)
+    let components = calendar.dateComponents([.year, .month], from: displayedMonth)
     guard let startOfMonth = calendar.date(from: components),
           let nextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else { return [] }
     return activeItems.filter { $0.timestamp >= startOfMonth && $0.timestamp < nextMonth }
@@ -129,21 +148,23 @@ struct CalendarView: View {
 }
 
 private struct CalendarHeader: View {
-  @Binding var selectedDate: Date
+  @Binding var displayedMonth: Date
+  @Binding var selectedDate: Date  // 오늘 버튼 클릭시 오늘 날짜로도 초기화
   private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
-  
+
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
       Text("캘린더")
         .font(.system(size: 24, weight: .bold, design: .serif))
         .foregroundStyle(.primary)
-      
+
       Spacer()
-      
+
       HStack(spacing: 8) {
         Button {
           withAnimation(selectionAnimation) {
             selectedDate = Date()
+            displayedMonth = Date()
           }
         } label: {
           Text("오늘")
@@ -156,7 +177,7 @@ private struct CalendarHeader: View {
 
         Button {
           withAnimation(selectionAnimation) {
-            selectedDate = Calendar.current.date(byAdding: .month, value: -1, to: selectedDate) ?? selectedDate
+            displayedMonth = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonth) ?? displayedMonth
           }
         } label: {
           Image(systemName: "chevron.left")
@@ -166,14 +187,14 @@ private struct CalendarHeader: View {
             .background(AppTheme.pointColor.opacity(0.10))
             .clipShape(Circle())
         }
-        
-        Text(DiaryDateFormatter.yearMonth.string(from: selectedDate))
+
+        Text(DiaryDateFormatter.yearMonth.string(from: displayedMonth))
           .font(.system(size: 14, weight: .semibold))
           .foregroundStyle(.secondary)
-        
+
         Button {
           withAnimation(selectionAnimation) {
-            selectedDate = Calendar.current.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
+            displayedMonth = Calendar.current.date(byAdding: .month, value: 1, to: displayedMonth) ?? displayedMonth
           }
         } label: {
           Image(systemName: "chevron.right")
@@ -190,7 +211,8 @@ private struct CalendarHeader: View {
 
 private struct CalendarGrid: View {
   let items: [Item]
-  @Binding var selectedDate: Date
+  let displayedMonth: Date  // 그리드 표시 월 (스와이프/버튼으로만 변경)
+  @Binding var selectedDate: Date  // 날짜 선택 전용
   private let selectionAnimation: Animation = .snappy(duration: 0.28, extraBounce: 0.04)
   @State private var gridSize: CGSize = .zero
   @State private var lastDragDate: Date?
@@ -205,7 +227,7 @@ private struct CalendarGrid: View {
   }
   
   private var monthDays: [Date] {
-    let comps = calendar.dateComponents([.year, .month], from: selectedDate)
+    let comps = calendar.dateComponents([.year, .month], from: displayedMonth)
     guard let startOfMonth = calendar.date(from: comps),
           let range = calendar.range(of: .day, in: .month, for: startOfMonth) else { return [] }
     return range.compactMap { day in
@@ -220,7 +242,8 @@ private struct CalendarGrid: View {
     let leading = (0..<weekdayOffset).compactMap { i in
       calendar.date(byAdding: .day, value: -(weekdayOffset - i), to: firstDay)
     }
-    let trailingCount = (7 - ((weekdayOffset + monthDays.count) % 7)) % 7
+    // 항상 6주(42칸) 고정 — 5주/6주 여부에 따라 높이가 바뀌지 않도록
+    let trailingCount = 42 - leading.count - monthDays.count
     let trailing = (0..<trailingCount).compactMap { i in
       calendar.date(byAdding: .day, value: i + 1, to: lastDay)
     }
@@ -254,7 +277,7 @@ private struct CalendarGrid: View {
   }
   
   private func isCurrentMonth(_ date: Date) -> Bool {
-    calendar.isDate(date, equalTo: selectedDate, toGranularity: .month)
+    calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
   }
 
   private func dayEntries(for date: Date) -> [Item] {

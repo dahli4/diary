@@ -9,24 +9,46 @@ struct MainListView: View {
   @State private var showEdit = false
   @State private var dailyQuote: String = QuoteGenerator.randomQuote // 오늘의 문구 상태
   @State private var initialPromptForNewEntry: String?
+  @State private var showSearch = false
   @Binding var openComposerToken: Int
   @Binding var reminderPrompt: String?
   
+  // 스와이프 진행 중 여부 — 일기 카드 NavigationLink 충돌 방지
+  @GestureState private var isSwiping = false
+
+  // 월 전환 스와이프 — 전체 화면 어디서든 수평으로 밀면 월 이동
+  private var monthSwipeGesture: some Gesture {
+    DragGesture(minimumDistance: 60)
+      .updating($isSwiping) { _, state, _ in state = true }
+      .onEnded { value in
+        let h = value.translation.width
+        let v = abs(value.translation.height)
+        guard abs(h) > v * 1.8 else { return }
+        withAnimation {
+          currentMonth = Calendar.current.date(
+            byAdding: .month,
+            value: h < 0 ? 1 : -1,
+            to: currentMonth
+          ) ?? currentMonth
+        }
+      }
+  }
+
   var body: some View {
     NavigationStack {
       ZStack {
         // 배경: 감정 그라디언트
         EmotionalBackgroundView()
-        
+
         ScrollView {
           VStack(spacing: 24) {
             HStack(alignment: .center) {
               Text(DiaryDateFormatter.yearMonth.string(from: currentMonth))
                 .font(.system(size: 26, weight: .bold, design: .serif))
                 .foregroundStyle(.primary)
-              
+
               Spacer()
-              
+
               HStack(spacing: 8) {
                 Button {
                   withAnimation {
@@ -39,7 +61,7 @@ struct MainListView: View {
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())
                 }
-                
+
                 Button {
                   withAnimation {
                     currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth) ?? currentMonth
@@ -51,11 +73,20 @@ struct MainListView: View {
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())
                 }
-                
+
                 Divider()
                   .frame(height: 20)
                   .padding(.horizontal, 4)
-                
+
+                Button(action: { showSearch = true }) {
+                  Image(systemName: "magnifyingglass")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(.primary)
+                    .frame(width: 40, height: 40)
+                    .background(Color.primary.opacity(0.05))
+                    .clipShape(Circle())
+                }
+
                 Button(action: {
                   initialPromptForNewEntry = nil
                   showEditor = true
@@ -71,7 +102,7 @@ struct MainListView: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 20)
-            
+
             VStack(spacing: 8) {
               Text(dailyQuote)
                 .font(.subheadline)
@@ -90,15 +121,20 @@ struct MainListView: View {
                 dailyQuote = QuoteGenerator.getNewQuote(current: dailyQuote)
               }
             }
-            
-            // 필터된 일기 목록
+
+            // 스와이프 중에는 목록 비활성화 → NavigationLink 충돌 방지
             DiaryFilteredList(month: currentMonth, editingItem: $editingItem, showEdit: $showEdit)
               .padding(.horizontal, 16)
               .padding(.bottom, 40)
+              .disabled(isSwiping)
           }
         }
       }
+      .simultaneousGesture(monthSwipeGesture)
       .navigationBarHidden(true)
+      .fullScreenCover(isPresented: $showSearch) {
+        SearchView()
+      }
       .fullScreenCover(isPresented: $showEditor) {
         NavigationStack {
           DiaryEditorView(item: nil, initialPrompt: initialPromptForNewEntry)

@@ -9,15 +9,28 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var authenticationService: AuthenticationService
     @AppStorage("isBiometricLockEnabled") private var biometricLockEnabled = false
-    
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("appearanceMode") private var appearanceMode = 0 // 0: 시스템, 1: 라이트, 2: 다크
+
+    private var preferredColorScheme: ColorScheme? {
+        switch appearanceMode {
+        case 1: return .light
+        case 2: return .dark
+        default: return nil
+        }
+    }
+
     var body: some View {
         Group {
-            if biometricLockEnabled && !authenticationService.isUnlocked {
+            if !hasSeenOnboarding {
+                OnboardingView()
+            } else if biometricLockEnabled && !authenticationService.isUnlocked {
                 lockOverlay
             } else {
                 mainTabs
             }
         }
+        .preferredColorScheme(preferredColorScheme)
         .onReceive(NotificationCenter.default.publisher(for: NotificationManager.openEditorFromReminder)) { output in
             let prompt = output.userInfo?["prompt"] as? String
             reminderPrompt = prompt
@@ -63,14 +76,22 @@ struct ContentView: View {
                     Label("캘린더", systemImage: "calendar")
                 }
                 .tag(1)
-            
+
+            NavigationStack {
+                StatsView()
+            }
+            .tabItem {
+                Label("통계", systemImage: "chart.bar")
+            }
+            .tag(2)
+
             NavigationStack {
                 SettingsView()
             }
             .tabItem {
                 Label("설정", systemImage: "gearshape")
             }
-            .tag(2)
+            .tag(3)
         }
         .tint(.primary)
     }
